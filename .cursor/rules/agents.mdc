@@ -1,0 +1,12 @@
+---
+description: 项目协作规则指针 — 一切以根目录 AGENTS.md 为准
+alwaysApply: true
+---
+
+本项目所有协作规则、架构边界、行为标准与 Git 工作流，**以根目录 `AGENTS.md` 为唯一权威**。
+
+动手前先完整阅读 `AGENTS.md` 并严格遵守，重点：
+- 一个文件/模块同一时间只有一个 owner，不跨目录乱改；
+- 从最新 main 切分支 `<layer>/<task>`，不直接改 main；
+- 跨层接口改动先写 ADR（`docs/decisions/`）；
+- 只读 API、密钥不入库；交付前跑通验证门。

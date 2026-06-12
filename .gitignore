@@ -1,0 +1,22 @@
+# 密钥与敏感配置 —— 永不入库（AGENTS.md §1.9）
+.env
+.env.*
+*.key
+*.pem
+secrets/
+**/secrets.*
+
+# 操作系统
+.DS_Store
+
+# 工具/缓存
+.superpowers/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+.idea/
+.vscode/
