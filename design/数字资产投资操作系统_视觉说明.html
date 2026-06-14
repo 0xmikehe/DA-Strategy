@@ -581,6 +581,98 @@
 
     li { margin: 4px 0; }
 
+    /* ---- v0.3 additions: 状态词表 / 快照 / 绩效 / 差异化组件 / 系统态 / 推送 ---- */
+    .src-tag {
+      display: inline-flex; align-items: center;
+      font-size: 9px; font-weight: 600; line-height: 1;
+      padding: 2px 5px; border-radius: 3px; margin-left: 4px;
+      vertical-align: middle; letter-spacing: 0.02em;
+    }
+    .src-tag.rule { color: var(--faint); border: 1px solid var(--line); }
+    .src-tag.ai { color: #cfc4f5; background: rgba(124, 106, 216, 0.16); border: 1px solid rgba(124, 106, 216, 0.42); }
+
+    .frozen-tag { color: var(--violet); display: inline-flex; align-items: center; gap: 5px; }
+    .frozen-tag::before {
+      content: ""; width: 6px; height: 6px; border-radius: 2px;
+      background: var(--violet); box-shadow: 0 0 0 3px rgba(124, 106, 216, 0.14);
+    }
+
+    .state-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .state-chip {
+      font-size: 11px; font-weight: 560; padding: 4px 9px; border-radius: 999px;
+      border: 1px solid var(--line); color: var(--muted); background: rgba(15, 23, 35, 0.6);
+    }
+    .state-chip.is-active { color: #d8eff8; border-color: rgba(78, 163, 216, 0.55); background: rgba(78, 163, 216, 0.14); }
+
+    .timeline { margin-top: 14px; }
+    .tl-item { display: grid; grid-template-columns: 60px 14px 1fr; gap: 10px; align-items: start; padding-bottom: 12px; }
+    .tl-item:last-child { padding-bottom: 0; }
+    .tl-time { font-size: 11px; color: var(--faint); white-space: nowrap; }
+    .tl-rail { position: relative; display: flex; justify-content: center; }
+    .tl-rail::before { content: ""; position: absolute; top: 5px; bottom: -12px; width: 1px; background: var(--line); }
+    .tl-item:last-child .tl-rail::before { display: none; }
+    .tl-dot { width: 9px; height: 9px; border-radius: 999px; background: var(--blue); margin-top: 4px; z-index: 1; }
+    .tl-dot.muted { background: var(--faint); }
+    .tl-state { font-size: 12px; color: var(--text); font-weight: 560; }
+    .tl-meta { font-size: 11px; color: var(--muted); }
+
+    .dual-chart {
+      position: relative; height: 158px; margin-top: 12px;
+      border: 1px solid var(--line); border-radius: var(--radius-control);
+      background: linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+      background-size: 100% 28px; overflow: hidden;
+    }
+    .excess { position: absolute; left: 16px; right: 16px; bottom: 34px; height: 44px; background: linear-gradient(rgba(61, 186, 109, 0.16), rgba(61, 186, 109, 0)); }
+    .curve { position: absolute; left: 16px; right: 16px; height: 78px; bottom: 34px; }
+    .curve.strategy { border-bottom: 2px solid var(--blue); border-radius: 50% 50% 44% 56%; transform: rotate(-7deg); }
+    .curve.bench { border-bottom: 2px dashed var(--muted); border-radius: 50% 50% 48% 52%; transform: rotate(-3deg); opacity: 0.72; }
+    .curve-legend { display: flex; gap: 16px; margin-top: 10px; font-size: 11px; color: var(--muted); }
+    .curve-legend i { display: inline-block; width: 16px; height: 0; border-top: 2px solid var(--blue); margin-right: 6px; vertical-align: middle; }
+    .curve-legend i.dash { border-top: 2px dashed var(--muted); }
+    .perf-row { display: flex; gap: 22px; margin-top: 12px; }
+    .perf-row b { font-size: 18px; color: var(--text); font-weight: 650; display: block; }
+    .perf-row b.positive { color: var(--green); }
+    .perf-row span { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .tier-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .tier { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 4px; border: 1px solid var(--line); display: inline-flex; gap: 6px; align-items: center; }
+    .tier small { font-weight: 500; color: var(--muted); }
+    .tier.t0 { color: #cdd7e4; }
+    .tier.t1 { color: #c7efd5; border-color: rgba(61, 186, 109, 0.35); }
+    .tier.t2 { color: #d8eff8; border-color: rgba(78, 163, 216, 0.35); }
+    .tier.t3 { color: #edd59b; border-color: rgba(215, 154, 48, 0.35); }
+    .tier.t4 { color: #f2c1c1; border-color: rgba(217, 92, 92, 0.35); }
+
+    .dev-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .dev { font-size: 11px; padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(215, 154, 48, 0.34); color: #edd59b; background: rgba(215, 154, 48, 0.1); }
+
+    .statecase { margin-top: 12px; }
+    .sc { display: grid; grid-template-columns: 104px 1fr; gap: 12px; align-items: center; border-top: 1px solid rgba(148, 163, 184, 0.12); padding: 8px 0; }
+    .sc:first-child { border-top: 0; }
+    .pill { font-size: 10px; font-weight: 600; padding: 3px 7px; border-radius: 4px; text-align: center; }
+    .pill.ok { color: #c7efd5; background: rgba(61, 186, 109, 0.12); }
+    .pill.stale { color: #edd59b; background: rgba(215, 154, 48, 0.14); }
+    .pill.fail { color: #f2c1c1; background: rgba(217, 92, 92, 0.14); }
+    .pill.empty { color: var(--muted); background: rgba(148, 163, 184, 0.1); }
+    .pill.load { color: #d8eff8; background: rgba(78, 163, 216, 0.12); }
+    .sc span { font-size: 12px; color: var(--muted); }
+
+    .push-card { margin-top: 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-panel); background: var(--panel); overflow: hidden; max-width: 340px; }
+    .push-head { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+    .push-head .bot { color: var(--blue); font-weight: 600; }
+    .push-body { padding: 11px; }
+    .push-body .pt { font-size: 13px; color: var(--text); font-weight: 560; margin-bottom: 5px; }
+    .push-body .pm { font-size: 12px; color: var(--muted); }
+    .push-foot { font-size: 10px; color: var(--faint); padding: 8px 11px 10px; border-top: 1px solid var(--line); }
+
+    .token-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .token-list code {
+      font-size: 10px; color: var(--muted); background: rgba(15, 23, 35, 0.7);
+      border: 1px solid var(--line); border-radius: 3px; padding: 2px 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap;
+    }
+    .token-list code b { color: var(--text); font-weight: 600; }
+
     @media (max-width: 1360px) {
       .hero {
         grid-template-columns: 1fr;
@@ -606,7 +698,7 @@
   <main class="page">
     <section class="hero">
       <div class="hero-copy">
-        <div class="eyebrow">Digital Asset Investment OS / Visual Guide v0.2</div>
+        <div class="eyebrow">Digital Asset Investment OS / Visual Guide v0.3</div>
         <h1>专业交易终端感，采用更柔和的 Soft Midnight。</h1>
         <p>设计语言以 Soft Midnight 为底：深蓝黑背景、柔和冷蓝主强调、绿涨红跌、轻微圆角、中高信息密度。市场页更接近交易终端，账本/策略/复盘共享同一套组件，只通过密度和模块优先级区分语气。</p>
 
@@ -642,61 +734,61 @@
           <header class="topbar">
             <div class="context-left">
               <div class="pair">BTC / USDT</div>
-              <div class="mini-stat"><strong>64,204.97</strong> <span class="positive">+2.18%</span></div>
-              <div class="mini-stat">State <strong class="accent">Risk-On</strong></div>
+              <div class="mini-stat"><strong>64,204.97</strong> <span class="positive">▲ +2.18%</span></div>
+              <div class="mini-stat">状态 <strong class="accent">分批配置</strong></div>
             </div>
             <div class="context-right">
               <div class="dot"></div>
-              <div class="mini-stat">Synced <strong>18:40</strong></div>
-              <div class="mini-stat">Snapshot <strong>#2048</strong></div>
+              <div class="mini-stat">已同步 <strong>18:40</strong></div>
+              <div class="mini-stat">快照 <strong>#2048</strong></div>
             </div>
           </header>
 
           <div class="content-grid">
             <div class="state-strip">
               <div class="metric-card">
-                <div class="metric-label">Market State</div>
-                <div class="metric-value accent">Risk-On</div>
-                <div class="metric-note">Triggered by trend, ETF flow, stablecoin liquidity.</div>
+                <div class="metric-label">市场状态 Market State</div>
+                <div class="metric-value accent">分批配置</div>
+                <div class="metric-note">由趋势、ETF 资金流、稳定币流动性触发。</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">ETF Flow</div>
+                <div class="metric-label">ETF 资金流</div>
                 <div class="metric-value positive">+124M</div>
-                <div class="metric-note">24h net inflow</div>
+                <div class="metric-note">24h 净流入</div>
               </div>
               <div class="metric-card">
                 <div class="metric-label">ETH/BTC</div>
                 <div class="metric-value">0.052</div>
-                <div class="metric-note">Neutral strength</div>
+                <div class="metric-note">强弱中性</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Derivatives</div>
-                <div class="metric-value warning">Warm</div>
-                <div class="metric-note">Funding elevated</div>
+                <div class="metric-label">衍生品情绪</div>
+                <div class="metric-value warning">偏热</div>
+                <div class="metric-note">资金费率抬升</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">Review</div>
+                <div class="metric-label">待复盘</div>
                 <div class="metric-value">1</div>
-                <div class="metric-note">Weekly draft</div>
+                <div class="metric-note">周复盘草稿</div>
               </div>
             </div>
 
             <section class="panel">
-              <div class="panel-head"><span>BTC trend structure</span><span>1D / 4H / 1H</span></div>
+              <div class="panel-head"><span>BTC 趋势结构</span><span>1D / 4H / 1H</span></div>
               <div class="chart"><div class="chart-line"></div></div>
             </section>
 
             <section class="panel">
-              <div class="panel-head"><span>Signal inputs</span><span>Snapshot locked</span></div>
+              <div class="panel-head"><span>信号输入</span><span class="frozen-tag">快照已冻结</span></div>
               <table class="table">
                 <thead>
-                  <tr><th>Source</th><th class="right">Value</th><th class="right">State</th></tr>
+                  <tr><th>来源</th><th class="right">数值</th><th class="right">状态</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td>ETF Flow</td><td class="right positive">+124M</td><td class="right positive">Strong</td></tr>
-                  <tr><td>Stablecoin</td><td class="right">Neutral</td><td class="right">Watch</td></tr>
-                  <tr><td>AI Sentiment</td><td class="right warning">Elevated</td><td class="right warning">Review</td></tr>
-                  <tr><td>Macro</td><td class="right">Mixed</td><td class="right">Neutral</td></tr>
+                  <tr><td>ETF 资金流 <span class="src-tag rule">规则</span></td><td class="right positive">+124M</td><td class="right positive">强</td></tr>
+                  <tr><td>稳定币 <span class="src-tag rule">规则</span></td><td class="right">中性</td><td class="right">观察</td></tr>
+                  <tr><td>情绪 <span class="src-tag ai">AI · 准确率 71%</span></td><td class="right warning">偏高</td><td class="right warning">待复核</td></tr>
+                  <tr><td>美股宏观 <span class="src-tag rule">规则</span></td><td class="right">分化</td><td class="right">中性</td></tr>
                 </tbody>
               </table>
             </section>
@@ -708,18 +800,39 @@
     <section class="section-grid">
       <div class="section">
         <h2>Color Tokens</h2>
-        <p>以 Soft Midnight 深蓝黑为底，用柔和冷蓝建立系统识别；红绿只服务涨跌和风险变化，琥珀只服务待办、异常、需要确认。</p>
+        <p>以 Soft Midnight 深蓝黑为底，用柔和冷蓝建立系统识别；红绿只服务涨跌和风险变化，琥珀只服务待办、异常、需要确认；紫色只标记 AI/模型来源。下方色板为<strong>语义主色</strong>；完整 token（含表面 / 描边 / 文字 / 圆角 / 阴影）见其下清单，全部取自 <code>:root</code>，本清单为唯一可信来源。</p>
         <div class="swatch-grid">
-          <div class="swatch" style="background:#060a10"><b>App BG</b><span>#060A10</span></div>
-          <div class="swatch" style="background:#0d141f"><b>Panel</b><span>#0D141F</span></div>
-          <div class="swatch" style="background:#132033"><b>Raised</b><span>#132033</span></div>
-          <div class="swatch" style="background:#4ea3d8"><b>Primary</b><span>#4EA3D8</span></div>
-          <div class="swatch" style="background:#2f6ebd"><b>Active</b><span>#2F6EBD</span></div>
-          <div class="swatch" style="background:#3dba6d"><b>Gain</b><span>#3DBA6D</span></div>
-          <div class="swatch" style="background:#d95c5c"><b>Loss</b><span>#D95C5C</span></div>
-          <div class="swatch" style="background:#d79a30"><b>Warn</b><span>#D79A30</span></div>
-          <div class="swatch" style="background:#7c6ad8"><b>Model</b><span>#7C6AD8</span></div>
-          <div class="swatch" style="background:#8b99ad"><b>Muted</b><span>#8B99AD</span></div>
+          <div class="swatch" style="background:#070b12"><b>App BG</b><span>#070B12 · --bg</span></div>
+          <div class="swatch" style="background:#0d141f"><b>Panel</b><span>#0D141F · --panel</span></div>
+          <div class="swatch" style="background:#132033"><b>Raised</b><span>#132033 · --panel-3</span></div>
+          <div class="swatch" style="background:#4ea3d8"><b>Primary</b><span>#4EA3D8 · --blue</span></div>
+          <div class="swatch" style="background:#2f6ebd"><b>Active</b><span>#2F6EBD · --blue-2</span></div>
+          <div class="swatch" style="background:#3dba6d"><b>Gain</b><span>#3DBA6D · --green</span></div>
+          <div class="swatch" style="background:#d95c5c"><b>Loss</b><span>#D95C5C · --red</span></div>
+          <div class="swatch" style="background:#d79a30"><b>Warn</b><span>#D79A30 · --amber</span></div>
+          <div class="swatch" style="background:#7c6ad8"><b>Model</b><span>#7C6AD8 · --violet</span></div>
+          <div class="swatch" style="background:#8b99ad"><b>Muted</b><span>#8B99AD · --muted</span></div>
+        </div>
+        <div class="token-list">
+          <code><b>--bg</b> #070B12</code>
+          <code><b>--canvas</b> #080F18</code>
+          <code><b>--panel</b> #0D141F</code>
+          <code><b>--panel-2</b> #101A28</code>
+          <code><b>--panel-3</b> #132033</code>
+          <code><b>--line</b> slate/18%</code>
+          <code><b>--line-strong</b> slate/28%</code>
+          <code><b>--text</b> #DCE6F2</code>
+          <code><b>--muted</b> #8B99AD</code>
+          <code><b>--faint</b> #657387</code>
+          <code><b>--blue</b> #4EA3D8</code>
+          <code><b>--blue-2</b> #2F6EBD</code>
+          <code><b>--green</b> #3DBA6D</code>
+          <code><b>--red</b> #D95C5C</code>
+          <code><b>--amber</b> #D79A30</code>
+          <code><b>--violet</b> #7C6AD8</code>
+          <code><b>--radius-panel</b> 6px</code>
+          <code><b>--radius-control</b> 4px</code>
+          <code><b>--shadow</b> 0 18px 60px /34%</code>
         </div>
       </div>
 
@@ -734,7 +847,7 @@
           </div>
           <div class="type-row">
             <div class="type-meta">Section / 17</div>
-            <div class="type-copy" style="font-size:17px;font-weight:620">BTC trend structure</div>
+            <div class="type-copy" style="font-size:17px;font-weight:620">BTC 趋势结构</div>
             <div class="type-meta">620</div>
           </div>
           <div class="type-row">
@@ -749,7 +862,7 @@
           </div>
           <div class="type-row">
             <div class="type-meta">Metric / 28</div>
-            <div class="type-copy accent" style="font-size:28px;font-weight:650">Risk-On</div>
+            <div class="type-copy accent" style="font-size:28px;font-weight:650">分批配置</div>
             <div class="type-meta">650</div>
           </div>
         </div>
@@ -762,38 +875,38 @@
         <p>组件偏硬朗，圆角轻微。状态标签和表格是系统主角，按钮保持克制。</p>
         <div class="components">
           <div class="component-box">
-            <h3>Buttons</h3>
+            <h3>按钮 Buttons</h3>
             <div class="button-row">
-              <button class="btn primary">View Snapshot</button>
-              <button class="btn">Assign Trade</button>
-              <button class="btn danger">Pause Strategy</button>
+              <button class="btn primary">查看快照</button>
+              <button class="btn">归属交易</button>
+              <button class="btn danger">暂停策略</button>
             </div>
           </div>
           <div class="component-box">
-            <h3>Status Tags</h3>
+            <h3>状态标签 Status Tags</h3>
             <div class="badge-row">
-              <span class="badge good">Synced</span>
-              <span class="badge todo">Needs Review</span>
-              <span class="badge risk">Mismatch</span>
-              <span class="badge">Draft</span>
+              <span class="badge good">已同步</span>
+              <span class="badge todo">待复盘</span>
+              <span class="badge risk">对账差异</span>
+              <span class="badge">草稿</span>
             </div>
           </div>
           <div class="component-box">
-            <h3>Tabs</h3>
+            <h3>标签页 Tabs</h3>
             <div class="tab-row">
-              <span class="tab active">Overview</span>
-              <span class="tab">Inputs</span>
-              <span class="tab">Snapshots</span>
-              <span class="tab">History</span>
+              <span class="tab active">概览</span>
+              <span class="tab">输入</span>
+              <span class="tab">快照</span>
+              <span class="tab">历史</span>
             </div>
           </div>
           <div class="component-box">
-            <h3>Data Table</h3>
+            <h3>数据表 Data Table</h3>
             <table class="table">
               <tbody>
-                <tr><td>BTC</td><td class="right">0.4241</td><td class="right positive">+3.24%</td></tr>
-                <tr><td>ETH</td><td class="right">4.8200</td><td class="right negative">-0.62%</td></tr>
-                <tr><td>USDT</td><td class="right">12,400</td><td class="right">Reserve</td></tr>
+                <tr><td>BTC</td><td class="right">0.4241</td><td class="right positive">▲ +3.24%</td></tr>
+                <tr><td>ETH</td><td class="right">4.8200</td><td class="right negative">▼ -0.62%</td></tr>
+                <tr><td>USDT</td><td class="right">12,400</td><td class="right">储备</td></tr>
               </tbody>
             </table>
           </div>
@@ -826,6 +939,128 @@
 
     <section class="section-grid">
       <div class="section">
+        <h2>Market State &amp; History 状态词表与历史</h2>
+        <p>市场状态只能取以下六个可证伪标签之一，由数据规则得出，无人工覆写。状态历史以时间线呈现，标注触发依据与快照 ID；切换受滞后容忍约束，避免抖动。</p>
+        <div class="state-row">
+          <span class="state-chip">防守</span>
+          <span class="state-chip">观察</span>
+          <span class="state-chip">试探</span>
+          <span class="state-chip is-active">分批配置</span>
+          <span class="state-chip">暂停加仓</span>
+          <span class="state-chip">降低风险</span>
+        </div>
+        <div class="timeline">
+          <div class="tl-item">
+            <div class="tl-time">06-13 18:40</div>
+            <div class="tl-rail"><div class="tl-dot"></div></div>
+            <div><div class="tl-state">分批配置 <span class="src-tag rule">规则</span></div><div class="tl-meta">趋势上行 + ETF 连续净流入 · 快照 #2048</div></div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">06-09 12:00</div>
+            <div class="tl-rail"><div class="tl-dot"></div></div>
+            <div><div class="tl-state">试探</div><div class="tl-meta">站上 200D 均线，等待资金流确认 · 快照 #2012</div></div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">05-28 09:00</div>
+            <div class="tl-rail"><div class="tl-dot muted"></div></div>
+            <div><div class="tl-state">观察</div><div class="tl-meta">区间震荡，无明确方向 · 快照 #1967</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Snapshot &amp; Falsifiability 快照与可证伪</h2>
+        <p>每次状态判定写入「决策时点快照」。点开快照进入<strong>冻结态</strong>：所有数据为当时存档值、非实时，用紫色「已冻结」标记并灰化刷新动作——这是「可证伪的肉眼验证入口」。AI 来源与数据规则来源在界面和存储中严格区分。</p>
+        <section class="panel" style="margin-top:12px;">
+          <div class="panel-head"><span>快照查看器 · #2048</span><span class="frozen-tag">已冻结 · 06-13 18:40</span></div>
+          <table class="table">
+            <thead><tr><th>输入维度</th><th class="right">当时值</th><th class="right">来源</th></tr></thead>
+            <tbody>
+              <tr><td>BTC 趋势</td><td class="right positive">上行</td><td class="right"><span class="src-tag rule">规则</span></td></tr>
+              <tr><td>ETF 资金流</td><td class="right positive">+124M</td><td class="right"><span class="src-tag rule">规则</span></td></tr>
+              <tr><td>市场情绪</td><td class="right warning">偏高</td><td class="right"><span class="src-tag ai">AI · 71%</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+        <p style="margin-top:10px;font-size:11px;color:var(--faint);">规则信号无标记；AI 信号必须挂紫色徽章并附准确率回测，二者永不混淆。</p>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div class="section">
+        <h2>Strategy Performance 策略绩效</h2>
+        <p>策略页核心：永远与自身基准并列。策略线（实线）对比基准线（虚线，BTC 定投并持有），超额收益区间着色；TWR 衡量策略能力、MWR 衡量实际资金效果，两者并列。跑不赢基准即应淘汰。</p>
+        <div class="dual-chart">
+          <div class="excess"></div>
+          <div class="curve bench"></div>
+          <div class="curve strategy"></div>
+        </div>
+        <div class="curve-legend">
+          <span><i></i>策略 TWR</span>
+          <span><i class="dash"></i>基准：BTC 定投并持有</span>
+          <span style="color:var(--green);">■ 超额收益</span>
+        </div>
+        <div class="perf-row">
+          <div><b class="positive">+18.4%</b><span>TWR</span></div>
+          <div><b>+12.1%</b><span>MWR</span></div>
+          <div><b class="positive">+4.6%</b><span>对基准超额</span></div>
+          <div><b class="negative">-9.2%</b><span>最大回撤</span></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Differentiated Components 差异化组件</h2>
+        <p>资产分层 T0–T4 各有色彩与「是否允许真实买入 / 最大仓位」约束；执行偏离客观标记不做心理归因；账本页对账差异与待归属交易用问题色高亮。</p>
+        <div class="tier-row">
+          <span class="tier t0">T0 现金 <small>防守</small></span>
+          <span class="tier t1">T1 核心 <small>可重仓</small></span>
+          <span class="tier t2">T2 主流 <small>增强</small></span>
+          <span class="tier t3">T3 赛道 <small>小仓</small></span>
+          <span class="tier t4">T4 高风险 <small>仅观察</small></span>
+        </div>
+        <div class="dev-row">
+          <span class="dev">偏离价格区间</span>
+          <span class="dev">偏离计划仓位</span>
+          <span class="dev">偏离计划时点</span>
+          <span class="dev">交易频率异常</span>
+        </div>
+        <div class="badge-row" style="margin-top:14px;">
+          <span class="badge risk">对账差异 +0.0021 BTC</span>
+          <span class="badge todo">待归属交易 3</span>
+          <span class="badge good">已对平</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div class="section">
+        <h2>System States 系统态</h2>
+        <p>本系统「最常见的死法是记录中断」，所以同步与数据新鲜度必须显式可见。每个数据面板都要能表达以下状态，不能只有「一切正常」的乐观态。</p>
+        <div class="statecase">
+          <div class="sc"><span class="pill ok">已同步</span><span>正常态，标注上次成功同步时间（已同步 18:40）。</span></div>
+          <div class="sc"><span class="pill stale">数据陈旧</span><span>超过预期周期未更新，琥珀提示「数据可能过期」，不直接报错。</span></div>
+          <div class="sc"><span class="pill fail">同步失败</span><span>管道失败告警，红色，附失败原因与重试入口；账本页最优先级。</span></div>
+          <div class="sc"><span class="pill empty">空队列</span><span>无待归属/无待复盘时的留白态，明确「暂无」而非加载中。</span></div>
+          <div class="sc"><span class="pill load">加载中</span><span>骨架屏占位，避免数字跳动造成误读。</span></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Push Card 推送卡片</h2>
+        <p>推送通道是「日常主入口」，负责「该看了」。卡片只发信号与提醒、绝不含余额等账户敏感信息；推送负责触发，页面负责深究。</p>
+        <div class="push-card">
+          <div class="push-head"><span class="bot">资产 OS Bot</span><span>· 状态切换</span></div>
+          <div class="push-body">
+            <div class="pt">市场状态：试探 → 分批配置</div>
+            <div class="pm">触发：BTC 趋势上行 + ETF 连续净流入。建议查看快照 #2048 与策略仓位计划。</div>
+          </div>
+          <div class="push-foot">06-13 18:40 · 不含持仓与余额 · 点此打开市场页</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <div class="section">
         <h2>Layout Rules</h2>
         <p>桌面优先，左侧图标栏加顶部上下文栏。1440px 以上充分利用横向空间；移动端只保留关键状态查看。</p>
         <div class="do-dont">
@@ -836,6 +1071,9 @@
               <li>顶部显示资产、时间范围、同步和快照。</li>
               <li>表格列使用右对齐数字。</li>
               <li>面板用细边框分层，不靠大阴影。</li>
+              <li>涨跌不只靠颜色，配 ▲▼ 或 +/− 兼顾色盲。</li>
+              <li>界面文案中文为主，ETF / TWR / MWR / Snapshot 等术语保留英文。</li>
+              <li>AI/模型来源必须挂紫色「AI」标记，数据规则信号不挂。</li>
             </ul>
           </div>
           <div class="rule-card">
