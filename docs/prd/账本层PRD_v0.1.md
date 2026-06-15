@@ -6,7 +6,7 @@
 > 决策依据：`docs/decisions/0003-ledger-account-model-and-sync-architecture.md`（账户模型与同步架构）。
 > 数据源依据：`docs/research/binance-account-api-research.md`（Binance 账户/同步 API 调研）。
 >
-> 本版范围：第 0 章（定位与边界）、第 1 章（核心数据模型）、第 2 章（Binance 同步管道）、第 3 章（API key 绑定功能）。其余章节（待归属、对账、外部录入流程、备份、账本页）见后续版本占位（§9）。
+> 本版范围：第 0 章（定位与边界）、第 1 章（核心数据模型）、第 2 章（Binance 同步管道）、第 3 章（API key 绑定功能）、第 5 章（对账）。其余章节（待归属、外部录入流程、备份、账本页）见后续版本占位（§9）。
 
 ---
 
@@ -82,6 +82,7 @@
 | `position`（视图） | 策略 × 资产 当前持仓 | 纯派生 |
 | `balance`（视图） | 账户 × 资产 当前余额 | 纯派生 |
 | `account_balance_snapshot` | 定期从交易所拉取的余额（对账目标） | 只追加 |
+| `reconciliation_result` | 每次对账的差异结果 | 只追加 |
 | `sync_cursor` | 断点续跑游标 | 状态 |
 
 > 命名澄清：`account_balance_snapshot`（对账用的余额拉取）≠ `decision_snapshot`（决策时点的市场输入快照）。二者无关。
@@ -456,12 +457,79 @@ Phase 1 纯 REST（backfill + 增量），无 WebSocket。账户事实只在用�
 
 ---
 
+## 第 5 章 对账（验收标准：账对不对）
+
+### 5.1 定位
+
+对账是账本层验收标准「账对不对」的落地：把**我们从事件流回放算出的余额（computed）**，与**交易所现报余额（reported）**逐账户逐资产比对。守恒不变式（§1.5）是其数学基础。
+
+```
+computed  = compute(events, now).balance[account][asset]   ← 第 1 章纯函数
+reported  = 最新 account_balance_snapshot[account][asset]   ← 第 2 章拉取
+```
+
+### 5.2 对账口径
+
+- **维度**：每个 `exchange_account` × 每个 `asset`。因 1 策略 = 1 子账户，对账天然按子账户独立进行；主账户、外部钱包各自对账。
+- **余额口径**：`reported 总量 = free + locked`（挂单锁定仍属持有）；`freeze` / `withdrawing` 作为排查信号单列，是否计入以 API 语义实测为准。
+- **精度阈值**：按资产精度（`exchangeInfo.baseAssetPrecision`）设容差，浮点 / 手续费尾差不判为差异。
+
+### 5.3 对账结果状态
+
+对每个 `(account, asset)`：
+
+| 状态 | 判定 | 典型成因 |
+| --- | --- | --- |
+| `MATCHED` | `|computed − reported| ≤ 阈值` | 账平 |
+| `MISSING_EVENT` | reported > computed | 交易所有、我们缺事件：漏同步成交 / 充值 / 分红 |
+| `EXTERNAL_BALANCE_MISMATCH` | computed > reported | 我们记了、交易所没有：多记 / 归属错 / 资产已挪到非 Spot 钱包或外部 |
+| `NEEDS_CLASSIFICATION` | 差异可归因于未纳入的资产变动 | Convert / Dust / Dividend / Funding / Earn 钱包划转未分类 |
+
+并做一次**全局守恒校验**：`Σ各账户 computed = Σ各策略 lot 剩余 + 主账户未分配`，作为总闸。
+
+### 5.4 `reconciliation_result` 字段
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 本地 ID |
+| `account_id` / `asset` | 对账维度 |
+| `computed_qty` / `reported_qty` / `diff` | 算出值 / 现报值 / 差异 |
+| `status` | §5.3 四态 |
+| `threshold` | 当次容差 |
+| `snapshot_ref` | 引用的 `account_balance_snapshot` |
+| `checked_at` | 对账时间 |
+| `note` | 排查备注 |
+
+### 5.5 触发与频率
+
+- 每轮同步后自动触发（§2.10）；手工同步后触发；亦可单独手工「对账」。
+- 结果只追加进 `reconciliation_result`，形成可复盘的对账历史。
+
+### 5.6 差异处理流程（人工兜底，只追加）
+
+1. `MATCHED`：无操作。
+2. 非 `MATCHED`：账本页**对账面板高亮** + 推送告警（不含敏感信息）。
+3. 排查路径（自动 → 人工）：
+   - **先扩同步**：补拉可能漏的接口（Convert / Dust / Dividend / 钱包划转 / 未知 symbol）→ 重算；
+   - 仍不平 → 进人工判断：是外部钱包 / 系统外交易（→ 第 6 章手工录入）、归属错误（→ 第 4 章待归属）、还是需冲正。
+4. **任何更正只走「只追加」**（补事件 / 冲正），不改历史。
+
+> 红线：**不允许「手工改余额对平」**。只能补事实，让回放自然对上——呼应只追加哲学。
+
+### 5.7 衔接
+
+- 输入：第 1 章 computed + 第 2 章 `account_balance_snapshot`。
+- 输出差异 → 第 4 章待归属 / 第 6 章外部录入。
+- 前端对账面板详见第 8 章。
+- **验收**：所有 `(account, asset)` 长期收敛到 `MATCHED`，或每个差异都有明确归因。
+
+---
+
 ## 第 9 章 后续版本占位
 
 以下章节待后续版本展开（不阻塞已写章节评审）：
 
 - 第 4 章 待归属队列与人工兜底
-- 第 5 章 对账逻辑（状态机，见调研 §6.3）
 - 第 6 章 外部交易手工录入流程
 - 第 7 章 备份与保留策略
 - 第 8 章 账本页功能细化（前端，沿用视觉契约）
