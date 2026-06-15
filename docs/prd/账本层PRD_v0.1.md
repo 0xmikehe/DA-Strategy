@@ -6,7 +6,7 @@
 > 决策依据：`docs/decisions/0003-ledger-account-model-and-sync-architecture.md`（账户模型与同步架构）。
 > 数据源依据：`docs/research/binance-account-api-research.md`（Binance 账户/同步 API 调研）。
 >
-> 本版范围：第 0 章（定位与边界）、第 1 章（核心数据模型）、第 3 章（API key 绑定功能）。其余章节（同步管道、待归属、对账、外部录入流程、备份、账本页）见后续版本占位（§9）。
+> 本版范围：第 0 章（定位与边界）、第 1 章（核心数据模型）、第 2 章（Binance 同步管道）、第 3 章（API key 绑定功能）。其余章节（待归属、对账、外部录入流程、备份、账本页）见后续版本占位（§9）。
 
 ---
 
@@ -260,6 +260,104 @@
 
 ---
 
+## 第 2 章 Binance 同步管道
+
+### 2.1 定位与目标
+
+把 Binance 账户事实**只读**拉进事件流（第 1 章三表）。四条硬目标：
+
+1. **完整**：不漏事件（含 Convert / Dust / Dividend / 钱包划转，否则对账不平）。
+2. **幂等**：重复拉取不重复入账。
+3. **可断点续跑**：游标持久化，中断可继续。
+4. **守限频**：不触发 Binance 限频封禁。
+
+输入 = 第 3 章路由表；输出 = `exchange_trade_fill` / `exchange_order` / `capital_flow_event` + `account_balance_snapshot` + `sync_cursor`。
+
+### 2.2 同步对象 → 接口 → 约束（对齐第 1 章 taxonomy + 第 3 章路由）
+
+| 同步对象 | 接口 | 用的 key | 时间窗口 / 游标约束 |
+| --- | --- | --- | --- |
+| 成交 | `GET /api/v3/myTrades` | 子账户 | **按 symbol**；`fromId` 游标优先；时间窗口 ≤ 24h；limit 1000 |
+| 订单 | `GET /api/v3/allOrders` | 子账户 | 按 symbol；`orderId` 或 ≤ 24h；limit 1000 |
+| 子账户余额 | `GET /api/v3/account` / `sapi/v3/sub-account/assets` | 子账户 / master | 当前快照，无历史 |
+| 主子划转 | `GET /sapi/v1/sub-account/universalTransfer` | master | 窗口 < 7 天；limit 500 |
+| 子账户充值 | `GET /sapi/v1/capital/deposit/subHisrec` | master | — |
+| master 充值 | `GET /sapi/v1/capital/deposit/hisrec` | master | 默认 90 天；窗口 < 90 天 |
+| 提现 | `GET /sapi/v1/capital/withdraw/history` | master | 默认 90 天；窗口 < 90 天 |
+| 钱包划转 | `GET /sapi/v1/asset/transfer` | 各账户 | 仅近 6 月；默认近 7 天 |
+| Convert | `GET /sapi/v1/convert/tradeFlow` | 各账户 | 窗口 ≤ 30 天 |
+| Dust | `GET /sapi/v1/asset/dribblet` | 各账户 | 仅近 100 条 |
+| Dividend | `GET /sapi/v1/asset/assetDividend` | 各账户 | 窗口 ≤ 180 天 |
+| symbol 字典 | `GET /api/v3/exchangeInfo` | 公开 | 校准 serverTime |
+
+> 数值依据 `docs/research/binance-account-api-research.md`，并以 API 实测为准。
+
+### 2.3 symbol 清单（关键约束）
+
+`myTrades` / `allOrders` **必须按 symbol 查询**，没有任何官方接口能一次返回整账户全部成交。因此：
+
+1. 从**策略资产池**推导候选交易对（如 BTC/ETH/SOL × USDT）；
+2. 用 `exchangeInfo` 校验有效性与精度，建本地 symbol 字典；
+3. 对每个子账户 × 每个 symbol 拉取。
+
+> **漏 symbol = 漏成交**。兜底：对账不平时，扩大 symbol 扫描范围或提示人工补充交易对。
+
+### 2.4 首次 backfill 顺序（见调研 §6.1）
+
+1. master key 调 `sub-account/list` 建立账户列表（第 3 章发现）。
+2. 绑定策略 ↔ 子账户、录入只读 key、过安全体检。
+3. 拉各子账户当前余额（`account` / `sub-account/assets`）。
+4. 建 symbol 字典（§2.3）。
+5. 每子账户 × 每 symbol：`myTrades` + `allOrders`。
+6. 拉资金流：主子划转、子充值、master 充值、提现、（Convert / Dust / Dividend / 钱包划转）。
+7. 生成虚拟账本余额（第 1 章纯函数回放），与当前余额快照对账。
+
+### 2.5 增量同步与时间切片
+
+- **游标**：`myTrades` 用 `fromId`；`allOrders` 用 `orderId` 或时间窗口；资金流接口用时间窗口。游标落 `sync_cursor`。
+- **时间切片**：所有"窗口上限"接口（24h / 7d / 30d / 90d / 180d）按上限切片循环拉取，避免漏数据。
+- 每个 `(account, endpoint, symbol)` 维护独立游标。
+
+### 2.6 幂等与去重
+
+- **幂等键**（第 1 章）：成交 = `account + symbol + trade_id`；资金流 = `account + event_type + external_id`。
+- 入账用 upsert / 冲突即跳过，使重复拉取、乱序到达无副作用（呼应 §1.6 全量回放）。
+- **只入账终态成功**记录（`status = SUCCESS / CONFIRMED`）；`pending` 不入账，后续轮询转终态再入。
+
+### 2.7 限频管理
+
+- 区分 **IP weight** 与 **UID weight**；各接口 weight 见 §2.2 来源。
+- 调度器按 weight 预算节流；多子账户按预算串行 / 受控并发。
+- **退避**：`429` / `418` / `-1003`（限频）→ 指数退避并尊重 `Retry-After`；`-1021`（时钟漂移）→ 用 `exchangeInfo.serverTime` 校准后重试。
+
+### 2.8 失败重试与可观测
+
+- 失败按指数退避重试，超上限标记失败、不阻塞其它任务。
+- 每个同步任务落 `last_success_at` / `last_error`（`sync_cursor`）。
+- 同步状态供账本页只读展示；失败 / 长时间未成功 → 推送告警（不含敏感信息）。
+
+### 2.9 调度与触发模型
+
+Phase 1 纯 REST（backfill + 增量），无 WebSocket。账户事实只在用户操作后才变，故**不高频轮询**，改用「手工即时 + 按需触发 + 低频兜底」组合：
+
+| 触发 | 作用 | 频率 |
+| --- | --- | --- |
+| **手工「立即同步」按钮** | 主力、最及时：在 Binance 下单 / 充提后点一下即拉取 | 用户触发 |
+| 打开账本页按需触发（on-view） | 让手工在关心数据的时刻几乎自动发生 | 进页面时 |
+| 低频定时同步（安全网） | 兜住非主动交易的变动（充值 / 分红 / dust）+ 对账心跳 | 每小时 ~ 每几小时 |
+| 慢车道 | 罕见且不时敏者（Dividend 180d、Dust 近 100 条）单独低频 | 每日一次 |
+| 新鲜度指示 | 账本页常显「上次成功同步：X 分钟前」，过时可见即可控 | 持续 |
+
+- 即便定时设到 1 小时，仍有窗口期数据未刷新；**手工按钮是保证及时性的主要机制，定时只作兜底。**
+- 手工按钮需防抖（运行中禁用），并受限频预算约束。
+- WebSocket（User Data Stream）推迟 Phase 1.5；即便接入，REST backfill 仍不可替代（WebSocket 不能重建历史），手工按钮可保留做强制刷新。
+
+### 2.10 与对账的衔接
+
+每轮同步后触发对账（第 5 章，占位）：纯函数回放出的 computed 余额 vs `account_balance_snapshot`。不平时按"漏 Convert / Dust / Dividend / 钱包划转 / 未知 symbol"排查——守恒不变式（§1.5）是入口。
+
+---
+
 ## 第 3 章 API key 绑定功能
 
 ### 3.1 定位
@@ -362,7 +460,6 @@
 
 以下章节待后续版本展开（不阻塞已写章节评审）：
 
-- 第 2 章 Binance 同步管道（backfill / 增量 / 限频 / 幂等 / 时间切片，见调研 §6）
 - 第 4 章 待归属队列与人工兜底
 - 第 5 章 对账逻辑（状态机，见调研 §6.3）
 - 第 6 章 外部交易手工录入流程
