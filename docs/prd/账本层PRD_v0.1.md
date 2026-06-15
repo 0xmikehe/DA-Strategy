@@ -174,7 +174,7 @@
 | `exchange_account_id` | 子账户 | 系统 |
 | `strategy_id` ★ | 绑定策略 | 子账户绑定推导 |
 | `strategy_version` ★ | 成交时策略版本 | 系统（按 `time` 取当时版本） |
-| `snapshot_id` ★ | 决策时点快照 | 系统绑定 |
+| `snapshot_id` ★ | 成交时点生效的决策快照（无则空） | 系统绑定 |
 | `symbol` | 交易对 | `myTrades.symbol` |
 | `trade_id` | Binance trade id | `id` |
 | `order_id` | Binance order id | `orderId` |
@@ -234,8 +234,8 @@
 
 **1.4.11 派生视图**
 
-- `position`（策略 × 资产）：`qty = Σ lot.qty_remaining`、`avg_cost`、市值、未实现盈亏。
-- `balance`（账户 × 资产）：由事件流增量投影；用于对账。
+- `position`（策略 × 资产）：`qty` = 该 (策略, 资产) 的事件净额（含计价货币现金腿）；对需成本基础的资产，另由 `lot` 给出 `avg_cost`、已实现 / 未实现盈亏，且其 `qty` 应等于 Σ`lot.qty_remaining`（一致性校验）。
+- `balance`（账户 × 资产）：由事件流回放算出；用于对账。
 
 **1.4.12 `sync_cursor` / `account_balance_snapshot`**：字段见 API 调研 §5.7 / §5.3。
 
@@ -244,11 +244,12 @@
 对任意资产：
 
 ```
-Σ(各账户 computed balance) = Σ(各策略各 lot 剩余) + 主账户未分配
+Σ(各账户 computed 余额) = Σ(各策略持仓) + 主账户未分配     （按每个资产分别成立）
 ```
 
 - 左边对比 `account_balance_snapshot`（交易所实际）= **对账**；
 - 右边要求每一单位都有归属，无法归属则挂「主账户未分配」= **归属完整性**。
+- **策略持仓含计价货币（USDT / 稳定币）现金腿**；`lot` 仅是「需成本基础资产」的额外结构，对这类资产其持仓量应等于 Σ该资产 `lot` 剩余（一致性校验）。
 - 两边不平 → 有事件漏记（典型：Convert/Dust/Dividend/钱包划转未同步）或归属错误。
 
 ### 1.6 派生原则与持仓计算（Phase 1 决策）
@@ -502,7 +503,7 @@ Phase 1 纯 REST（backfill + 增量），无 WebSocket。账户事实只在用�
 ### 4.6 衔接
 
 - 上游：第 5 章对账差异、第 6 章外部录入、第 2 章 backfill（绑定前）。
-- 前端：账本页「待归属交易队列」（第 8 章），是账本层四类写操作之一（归属交易）。
+- 前端：账本页「待归属交易队列」（第 8 章），是账本页两类写操作之一（归属交易）。
 - Phase 1 单策略预期队列接近空；该机制主要为 Phase 2 多策略与外部钱包准备。
 
 ---
@@ -535,7 +536,7 @@ reported  = 最新 account_balance_snapshot[account][asset]   ← 第 2 章拉�
 | `EXTERNAL_BALANCE_MISMATCH` | computed > reported | 我们记了、交易所没有：多记 / 归属错 / 资产已挪到非 Spot 钱包或外部 |
 | `NEEDS_CLASSIFICATION` | 差异可归因于未纳入的资产变动 | Convert / Dust / Dividend / Funding / Earn 钱包划转未分类 |
 
-并做一次**全局守恒校验**：`Σ各账户 computed = Σ各策略 lot 剩余 + 主账户未分配`，作为总闸。
+并做一次**全局守恒校验**：`Σ各账户 computed = Σ各策略持仓（含现金腿）+ 主账户未分配`，作为总闸。
 
 ### 5.4 `reconciliation_result` 字段
 
@@ -611,7 +612,7 @@ reported  = 最新 account_balance_snapshot[account][asset]   ← 第 2 章拉�
 ### 6.6 更正与写边界
 
 - 录错 → **冲正（reversal）+ 重录**，不直接改。
-- 属账本层四类写操作之一（录入外部交易）；前端在账本页（第 8 章）；`entered_by` 记录操作者。
+- 属账本页两类写操作之一（录入外部交易）；前端在账本页（第 8 章）；`entered_by` 记录操作者。
 
 ---
 
