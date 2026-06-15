@@ -6,7 +6,7 @@
 > 决策依据：`docs/decisions/0003-ledger-account-model-and-sync-architecture.md`（账户模型与同步架构）。
 > 数据源依据：`docs/research/binance-account-api-research.md`（Binance 账户/同步 API 调研）。
 >
-> 本版范围：第 0 章（定位与边界）、第 1 章（核心数据模型）。其余章节（同步管道、待归属、对账、外部录入流程、备份、账本页）见后续版本占位（§9）。
+> 本版范围：第 0 章（定位与边界）、第 1 章（核心数据模型）、第 3 章（API key 绑定功能）。其余章节（同步管道、待归属、对账、外部录入流程、备份、账本页）见后续版本占位（§9）。
 
 ---
 
@@ -260,12 +260,109 @@
 
 ---
 
+## 第 3 章 API key 绑定功能
+
+### 3.1 定位
+
+绑定功能是**接入 / 设置流程**（非日常账本页操作），维护核心三元组并产出同步管道所需的**路由表 + 凭证健康状态**：
+
+```
+策略 strategy ↔ 子账户 exchange_account(subUserId/email) ↔ 只读 key api_credential
+```
+
+外加：**master 账户 ↔ master key**（不绑策略，用于 master 级接口）。
+
+### 3.2 绑定流程（onboarding）
+
+1. **子账户发现**：master key 调 `GET /sapi/v1/sub-account/list` → 落 `exchange_account`（含 `is_freeze`）。
+2. **选策略绑子账户**（1:1）。
+3. **录入只读 key/secret** → secret 写入 `.env`，DB 仅存 `key_ref`（环境变量名）。
+4. **安全体检**：用该 key 调 `GET /sapi/v1/account/apiRestrictions`，过闸（§3.3）才算成功。
+5. 通过 → 绑定 `active`，进入路由表；不通过 → **阻止保存 + 高危告警**。
+6. master key 同样走体检（只读；如需读主子划转/充值则保留对应读取权限）。
+
+每步结果写 `account_binding_audit`（只追加）。
+
+### 3.3 安全闸门（绑定时卡死 + 定期复检）
+
+| 检查项 | 子账户 key 要求 | 不满足 |
+| --- | --- | --- |
+| `enable_reading` | true | BLOCK |
+| `enable_withdrawals` | false | **BLOCK** |
+| `enable_spot_and_margin_trading` | false | **BLOCK** |
+| `enable_internal_transfer` / `permits_universal_transfer` | false | BLOCK |
+| `ip_restrict` | true | WARN（强烈建议开） |
+
+- **复检节奏**：每次同步任务启动前 + 定期（如每日）跑一次体检，结果落 `api_key_health_check`。
+- 复检发现**权限超标 / key 失效** → 该 `api_credential` 置 `blocked`、**暂停对应策略同步**、推送告警（不含密钥与敏感信息）。
+
+### 3.4 状态机
+
+`exchange_account` × `api_credential` 的活跃性由两者共同决定：
+
+| 状态 | 含义 | 进入条件 |
+| --- | --- | --- |
+| `discovered` | 已发现、未绑策略 | `sub-account/list` 拉到 |
+| `pending_check` | 已绑策略、已录 key、待体检 | 完成 §3.2 步 2–3 |
+| `active` | 可同步 | 体检过闸 |
+| `blocked` | 不可同步 | key 失效 / 权限超标 |
+| `frozen` | 交易所冻结 | `is_freeze=true` |
+| `unbound` | 已解绑 | 人工解绑 |
+
+> `frozen` 子账户不得作为活跃策略账户。`blocked` → 换 key 体检通过后回 `active`。
+
+### 3.5 关键操作（均写 `account_binding_audit`）
+
+| 操作 | 说明 |
+| --- | --- |
+| `BIND` | 策略 + 子账户 + key 首次绑定 |
+| `ROTATE_KEY` | 换 key：**新 key 先体检通过再切换**，旧 `key_ref` 作废；不动策略绑定 |
+| `REBIND_STRATEGY` | 策略改绑到新子账户（迁移）；历史成交仍按原归属，保留审计 |
+| `UNBIND` | 解绑，停止该账户同步 |
+
+### 3.6 约束 / 不变式
+
+- 1 子账户 ↔ 至多 1 个 `active` 策略；1 实盘策略 ↔ 恰好 1 子账户。
+- 可同步的子账户必须有 ≥1 把 `active` 只读 key。
+- master 账户单独一把 key，不绑策略。
+
+### 3.7 产出：同步路由表
+
+绑定完成后，同步管道据此决定「用哪把 key 调哪些接口」：
+
+| 账户角色 | 用的 key | 负责的接口 |
+| --- | --- | --- |
+| 子账户 | 该子账户只读 key | `GET /api/v3/account`、`GET /api/v3/myTrades`、`GET /api/v3/allOrders` |
+| master | master key | `sub-account/list`、`sub-account/assets`、`sub-account/universalTransfer`、`capital/deposit/subHisrec`、`capital/deposit/hisrec`、`capital/withdraw/history` |
+
+> 依据 ADR-0003 实测：master key **读不到**子账户 Spot 成交，故子账户级接口必须走各自的 key。
+
+### 3.8 密钥与脱敏（呼应 ADR-0003 / 立项书 §18）
+
+- secret 存 `.env`（gitignored，`chmod 600`）；DB / git 仅存 `key_ref`；入库一份 `.env.example`（仅变量名）。
+- 经 `key_ref` 抽象，日后换 Keychain / 1Password 不动绑定逻辑。
+- 日志、推送、报错**不得打印** key / secret / 充提地址全文。
+
+### 3.9 Phase 1 交付形态
+
+绑定与密钥管理 Phase 1 **不做专门 UI**，按下表分工：
+
+| 部分 | Phase 1 做法 |
+| --- | --- |
+| 密钥 secret | 手动写入 `.env`，UI / 浏览器永不接触（降低泄露面） |
+| 绑定关系（子账户 ↔ 策略） | 配置文件 + `setup` / `verify` 命令（发现子账户、跑安全体检） |
+| 状态可见性（必须） | 账本页**只读展示**：策略 ↔ 子账户绑定、上次体检结果、BLOCK / WARN；失效推送告警 |
+
+- 呼应总 PRD §2.6「写操作面极小」：绑定是低频设置操作（Phase 1 仅 1 策略），不进日常写操作面。
+- **绑定 UI 推迟到 Phase 2**：多策略、频繁绑定 / 换 key / 迁移时，再做「只管映射、不碰 secret」的轻量 UI。
+
+---
+
 ## 第 9 章 后续版本占位
 
-以下章节待后续版本展开（不阻塞第 0–1 章评审）：
+以下章节待后续版本展开（不阻塞已写章节评审）：
 
 - 第 2 章 Binance 同步管道（backfill / 增量 / 限频 / 幂等 / 时间切片，见调研 §6）
-- 第 3 章 API key 绑定功能（流程 / 状态机 / 安全闸门 / 复检）
 - 第 4 章 待归属队列与人工兜底
 - 第 5 章 对账逻辑（状态机，见调研 §6.3）
 - 第 6 章 外部交易手工录入流程
