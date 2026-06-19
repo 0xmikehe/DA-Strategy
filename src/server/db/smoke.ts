@@ -8,14 +8,51 @@ export type DatabaseSmokeResult = {
     job_run: number;
     sync_cursor: number;
     decision_snapshot: number;
+    strategy_version: number;
+    asset_pool_item: number;
+    market_candle_fact: number;
+    funding_rate_fact: number;
+    exchange_account: number;
+    strategy_account_binding: number;
+    ledger_event: number;
+    exchange_trade_fill: number;
+    capital_flow_event: number;
+    planned_action: number;
+    review_draft: number;
   };
 };
 
 export async function checkDatabaseConnection(): Promise<DatabaseSmokeResult> {
-  const [jobRunCount, syncCursorCount, decisionSnapshotCount] = await Promise.all([
+  const [
+    jobRunCount,
+    syncCursorCount,
+    decisionSnapshotCount,
+    strategyVersionCount,
+    assetPoolItemCount,
+    marketCandleFactCount,
+    fundingRateFactCount,
+    exchangeAccountCount,
+    strategyAccountBindingCount,
+    ledgerEventCount,
+    exchangeTradeFillCount,
+    capitalFlowEventCount,
+    plannedActionCount,
+    reviewDraftCount
+  ] = await Promise.all([
     prisma.jobRun.count(),
     prisma.syncCursor.count(),
-    prisma.decisionSnapshot.count()
+    prisma.decisionSnapshot.count(),
+    prisma.strategyVersion.count(),
+    prisma.assetPoolItem.count(),
+    prisma.marketCandleFact.count(),
+    prisma.fundingRateFact.count(),
+    prisma.exchangeAccount.count(),
+    prisma.strategyAccountBinding.count(),
+    prisma.ledgerEvent.count(),
+    prisma.exchangeTradeFill.count(),
+    prisma.capitalFlowEvent.count(),
+    prisma.plannedAction.count(),
+    prisma.reviewDraft.count()
   ]);
 
   return {
@@ -24,7 +61,18 @@ export async function checkDatabaseConnection(): Promise<DatabaseSmokeResult> {
     tables: {
       job_run: jobRunCount,
       sync_cursor: syncCursorCount,
-      decision_snapshot: decisionSnapshotCount
+      decision_snapshot: decisionSnapshotCount,
+      strategy_version: strategyVersionCount,
+      asset_pool_item: assetPoolItemCount,
+      market_candle_fact: marketCandleFactCount,
+      funding_rate_fact: fundingRateFactCount,
+      exchange_account: exchangeAccountCount,
+      strategy_account_binding: strategyAccountBindingCount,
+      ledger_event: ledgerEventCount,
+      exchange_trade_fill: exchangeTradeFillCount,
+      capital_flow_event: capitalFlowEventCount,
+      planned_action: plannedActionCount,
+      review_draft: reviewDraftCount
     }
   };
 }
