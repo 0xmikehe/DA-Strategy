@@ -86,7 +86,8 @@ Phase 1 的核心不是先把所有功能做宽，而是在 6-8 周时间盒内�
 ### 10. 验证门：P0 写入真实命令
 
 - P0 脚手架落地时，必须把 `AGENTS.md` §4 的占位验证门替换为真实命令。
-- Phase 1 默认验证门包含：lint、typecheck、测试、迁移检查；涉及前端时补充最小页面 smoke / e2e。
+- Phase 1 默认验证门包含：lint、typecheck、Prisma schema validate、migration status、测试、DB smoke、worker smoke；涉及前端时补充最小页面 smoke / e2e。
+- 本地验证前必须先用 Docker Compose 启动 Postgres；standalone Node CLI / worker / Prisma 入口必须能从本机 `.env` 加载 `DATABASE_URL`。
 - 每个 agent 交付前必须跑同一套命令。命令不统一时，不允许并行实现跨层任务。
 
 ## 备选方案

@@ -73,9 +73,12 @@
 
 ## 4. 验证门（"完成"的机器可检验定义）
 
-> Phase 1 / P0 起，所有 agent 使用同一套本地验证门。首次运行前先执行 `npm install`，并从 `.env.example` 创建本机 `.env`（真实 key 不入库）。
+> Phase 1 / P0 起，所有 agent 使用同一套本地验证门。首次运行前先执行 `npm install`，从 `.env.example` 创建本机 `.env`（真实 key 不入库），并执行 `npm run db:up` 启动本地 Postgres。
 
 ```
+# local Postgres
+npm run db:up
+
 # lint
 npm run lint
 
@@ -85,8 +88,14 @@ npm run typecheck
 # Prisma schema validation
 npm run prisma:validate
 
-# unit / contract / worker tests
+# Prisma migration status
+npm run db:status
+
+# unit / contract / integration / worker tests
 npm run test
+
+# DB smoke
+npm run db:smoke
 
 # worker smoke
 npm run worker:smoke
@@ -98,6 +107,7 @@ npm run verify
 - 涉及前端 e2e 时再运行：`npm run test:e2e`。
 - 真实 Binance 网络 / 账号测试不属于默认本地或 CI 验证门；必须由人明确触发，并使用只读 key。
 - 交付前至少保证 `npm run verify` 全绿；若修改前端页面，补跑 `npm run build`。
+- 若修改 `prisma/schema.prisma`，必须提交对应 `prisma/migrations/*/migration.sql`，并确认 `npm run db:status` 全绿。
 
 ---
 

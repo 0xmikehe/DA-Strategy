@@ -1,4 +1,5 @@
 import { pathToFileURL } from "node:url";
+import { getServerEnv } from "../config/env";
 import { jobTypes } from "../jobs/types";
 
 export type WorkerSmokeResult = {
@@ -17,6 +18,7 @@ export async function runWorkerSmoke(): Promise<WorkerSmokeResult> {
 
 async function main() {
   const args = process.argv.slice(2);
+  getServerEnv();
 
   if (args.includes("--smoke")) {
     console.log(JSON.stringify(await runWorkerSmoke()));
