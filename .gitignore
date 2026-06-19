@@ -1,6 +1,7 @@
 # 密钥与敏感配置 —— 永不入库（AGENTS.md §1.9）
 .env
 .env.*
+!.env.example
 *.key
 *.pem
 secrets/
@@ -12,6 +13,11 @@ secrets/
 # 工具/缓存
 .superpowers/
 node_modules/
+.next/
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
 __pycache__/
 *.pyc
 .venv/

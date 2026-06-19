@@ -22,10 +22,10 @@
 | 层 | 管什么 | 验收标准 | 目录约定 |
 | --- | --- | --- | --- |
 | 事实层（账本） | 发生了什么（只追加、不可变） | 账对不对 | `src/ledger/` |
-| 判断层（信号） | 市场是什么状态（可证伪、只读） | 判断准不准 | `src/signal/` |
+| 判断层（信号） | 市场有哪些客观信号（可证伪、只读） | 判断准不准 | `src/signal/` |
 | 决策层（策略） | 基于判断该做什么（可复盘、可淘汰） | 决策好不好 | `src/strategy/` |
 
-层间契约（**不可绕过**）：决策层只消费「状态信号 + 快照 ID」，永不直接读原始行情；判断层对账户事实库零依赖。
+层间契约（**不可绕过**）：决策层只消费「启用态信号集 + 快照 ID」，永不直接读原始行情；市场事实库归信号层 `src/signal/facts/`；判断层对账户事实库零依赖。
 
 边界红线（第一阶段绝不触碰）：不碰合约/杠杆/做空/期权、不做自动下单、**只用只读 API（无交易、无提现权限）**。
 
@@ -51,7 +51,7 @@
 
 8. **人是唯一的集成者。** AI agent 只**提 PR / 提交到任务分支**，由人 review 后合并。agent 不得自动合并彼此的产出，不得直接提交到 `main`。
 
-9. **密钥永不入库。** API key、`.env`、密钥文件一律不进 git（见 `.gitignore`）。推送通道/日志不得打印账户敏感信息。
+9. **密钥永不入库。** API key、`.env`、密钥文件一律不进 git（见 `.gitignore`）。站内动态 / 未来推送 / 日志不得打印账户敏感信息。
 
 ---
 
@@ -73,14 +73,31 @@
 
 ## 4. 验证门（"完成"的机器可检验定义）
 
-> 第一阶段技术栈未定，此处先占位。技术栈确定后，把下面替换为真实命令，并保证所有 agent 用同一套。
+> Phase 1 / P0 起，所有 agent 使用同一套本地验证门。首次运行前先执行 `npm install`，并从 `.env.example` 创建本机 `.env`（真实 key 不入库）。
 
 ```
-# lint:      <待定>
-# typecheck: <待定>
-# test:      <待定>
-# 交付前三者必须全绿
+# lint
+npm run lint
+
+# typecheck
+npm run typecheck
+
+# Prisma schema validation
+npm run prisma:validate
+
+# unit / contract / worker tests
+npm run test
+
+# worker smoke
+npm run worker:smoke
+
+# aggregate gate
+npm run verify
 ```
+
+- 涉及前端 e2e 时再运行：`npm run test:e2e`。
+- 真实 Binance 网络 / 账号测试不属于默认本地或 CI 验证门；必须由人明确触发，并使用只读 key。
+- 交付前至少保证 `npm run verify` 全绿；若修改前端页面，补跑 `npm run build`。
 
 ---
 

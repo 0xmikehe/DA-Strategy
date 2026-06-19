@@ -10,3 +10,6 @@
 | [0002](0002-visual-language-baseline.md) | 视觉语言基线 v0.3（Soft Midnight 设计契约） | Accepted | docs（约束三层页面） | 2026-06-13 |
 | [0003](0003-ledger-account-model-and-sync-architecture.md) | 账本层账户模型与同步架构 | Accepted | ledger（影响 signal/strategy） | 2026-06-15 |
 | [0004](0004-signal-layer-methodology-baseline.md) | 信号层方法论基线（注册表 · 卡片同源 · 三态生命周期 · AI 边界） | Accepted | signal（影响 strategy/账本快照） | 2026-06-15 |
+| [0005](0005-strategy-layer-methodology-baseline.md) | 策略层方法论基线（策略为第一公民 · 信号→动作映射归策略 · 版本化复盘 · AI 仅润色） | Accepted | strategy（消费 signal/ledger） | 2026-06-16 |
+| [0006](0006-phase1-technical-baseline.md) | Phase 1 技术栈与运行基线 | Accepted | 全局（ledger / signal / strategy / docs） | 2026-06-19 |
+| [0007](0007-phase1-cross-layer-contracts.md) | Phase 1 跨层契约基线 | Accepted | 全局（ledger / signal / strategy） | 2026-06-19 |

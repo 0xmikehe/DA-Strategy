@@ -25,7 +25,7 @@
 ### 0.2 三条红线（不可绕过）
 
 1. **只追加、不可变**：账户事实一旦入库不可修改、不可删除；纠错只能追加**冲正（reversal）**事件。
-2. **判断层零依赖**：账本层数据**只服务决策层**；判断层（信号层）对账户事实库零依赖——市场状态判定不得受个人持仓影响。
+2. **判断层零依赖**：账本层数据**只服务决策层**；判断层（信号层）对账户事实库零依赖——市场信号研判不得受个人持仓影响。
 3. **只读、密钥不入库**：Phase 1 仅用只读 API（无交易、无提现权限）；明文密钥永不进 git、不进 DB、不进日志（见 ADR-0003）。
 
 ### 0.3 层间接口（契约）
@@ -42,7 +42,7 @@
 
 ### 0.4 范围（Phase 1）
 
-**做**：Binance 只读同步（成交/充提/划转及衍生资产变动）、虚拟账本 v0（基于物理子账户）、快照存储 v0、API key 绑定与安全体检、对账、外部交易手工录入。
+**做**：Binance 只读同步（成交/充提/划转及其它会改变余额的资产变动）、物理子账户归属 + 虚拟兜底 v0、快照容器 v0、API key 绑定与安全体检、对账、外部交易手工录入。
 
 **不做**（Phase 1）：自动下单、自动划转（`POST` 类接口）、合约/杠杆/期权、税务处理、纸面策略的纯虚拟模拟账本（推迟到 Phase 2）。
 
@@ -134,8 +134,9 @@
 | --- | --- |
 | `id` | 本地 ID |
 | `exchange_account_id` | 所属账户 |
+| `credential_role` ★ | `MASTER_READ_ONLY` / `STRATEGY_SUB_READ_ONLY` |
 | `key_label` | 人类可读标签 |
-| `key_ref` | **指向 `.env` 的环境变量名**（如 `BINANCE_SUB1_KEY`）；不存明文 |
+| `key_ref` | **指向 `.env` 的环境变量前缀**（如 `BINANCE_STRATEGY_CORE_ALLOCATION_LT`）；不存明文 |
 | `scope` | 固定 `READ_ONLY` |
 | `status` | `active` / `blocked` / `revoked` |
 | `last_verified_at` | 上次体检时间 |
@@ -313,7 +314,7 @@
 4. 建 symbol 字典（§2.3）。
 5. 每子账户 × 每 symbol：`myTrades` + `allOrders`。
 6. 拉资金流：主子划转、子充值、master 充值、提现、（Convert / Dust / Dividend / 钱包划转）。
-7. 生成虚拟账本余额（第 1 章纯函数回放），与当前余额快照对账。
+7. 生成系统回放余额（第 1 章纯函数回放），与当前余额快照对账。
 
 ### 2.5 增量同步与时间切片
 
@@ -377,7 +378,7 @@ Phase 1 纯 REST（backfill + 增量），无 WebSocket。账户事实只在用�
 
 1. **子账户发现**：master key 调 `GET /sapi/v1/sub-account/list` → 落 `exchange_account`（含 `is_freeze`）。
 2. **选策略绑子账户**（1:1）。
-3. **录入只读 key/secret** → secret 写入 `.env`，DB 仅存 `key_ref`（环境变量名）。
+3. **录入只读 key/secret** → secret 写入 `.env`，DB 仅存 `key_ref`（环境变量前缀）。
 4. **安全体检**：用该 key 调 `GET /sapi/v1/account/apiRestrictions`，过闸（§3.3）才算成功。
 5. 通过 → 绑定 `active`，进入路由表；不通过 → **阻止保存 + 高危告警**。
 6. master key 同样走体检（只读；如需读主子划转/充值则保留对应读取权限）。
@@ -444,6 +445,37 @@ Phase 1 纯 REST（backfill + 增量），无 WebSocket。账户事实只在用�
 - 经 `key_ref` 抽象，日后换 Keychain / 1Password 不动绑定逻辑。
 - 日志、推送、报错**不得打印** key / secret / 充提地址全文。
 
+### 3.8.1 Key 分层与环境变量约定
+
+账本层是 Binance 账户 key 的唯一归口。信号层行情取数不需要 key；策略层只引用账本产出的绑定状态与账户事实，不读取任何 key / secret。
+
+| Key 类型 | `credential_role` | 归属 | 负责接口 | 环境变量前缀示例 |
+| --- | --- | --- | --- | --- |
+| 行情接口 | — | 信号层 public data | `api/v3/klines`、`fapi/v1/fundingRate`、`futures/data/*` | 不配置 key |
+| Master 只读 key | `MASTER_READ_ONLY` | master 账户 | `sub-account/list`、`sub-account/assets`、主子划转 / 充提历史 | `BINANCE_MASTER` |
+| 策略子账户只读 key | `STRATEGY_SUB_READ_ONLY` | 每个实盘策略绑定的 Binance 子账户 | `api/v3/account`、`api/v3/myTrades`、`api/v3/allOrders` | `BINANCE_STRATEGY_CORE_ALLOCATION_LT` |
+
+`.env` 变量命名：
+
+```env
+BINANCE_API_BASE_URL=https://api.binance.com
+BINANCE_FAPI_BASE_URL=https://fapi.binance.com
+BINANCE_RECV_WINDOW_MS=5000
+
+BINANCE_MASTER_API_KEY=...
+BINANCE_MASTER_API_SECRET=...
+
+BINANCE_STRATEGY_CORE_ALLOCATION_LT_API_KEY=...
+BINANCE_STRATEGY_CORE_ALLOCATION_LT_API_SECRET=...
+```
+
+规则：
+
+- `key_ref` 只保存环境变量前缀，如 `BINANCE_STRATEGY_CORE_ALLOCATION_LT`；运行时由同步器拼出 `${key_ref}_API_KEY` 与 `${key_ref}_API_SECRET`。
+- `.env.example` 只入库变量名与空值 / 示例 base URL，绝不含真实 key / secret。
+- 所有 `USER_DATA` / signed 请求由账本同步器统一加 `X-MBX-APIKEY`、`timestamp`、`recvWindow` 与 `signature`；业务日志只记录 `key_ref`、endpoint、risk level，不记录 header / query 原文。
+- 每轮账户同步启动前，对 master key 和所有策略子账户 key 先跑 `GET /sapi/v1/account/apiRestrictions`；出现 `BLOCK` 则暂停对应账户同步。
+
 ### 3.9 Phase 1 交付形态
 
 绑定与密钥管理 Phase 1 **不做专门 UI**，按下表分工：
@@ -452,7 +484,7 @@ Phase 1 纯 REST（backfill + 增量），无 WebSocket。账户事实只在用�
 | --- | --- |
 | 密钥 secret | 手动写入 `.env`，UI / 浏览器永不接触（降低泄露面） |
 | 绑定关系（子账户 ↔ 策略） | 配置文件 + `setup` / `verify` 命令（发现子账户、跑安全体检） |
-| 状态可见性（必须） | 账本页**只读展示**：策略 ↔ 子账户绑定、上次体检结果、BLOCK / WARN；失效推送告警 |
+| 状态可见性（必须） | 账本页**只读展示**：策略 ↔ 子账户绑定、上次体检结果、BLOCK / WARN；Phase 1 站内告警 |
 
 - 呼应总 PRD §2.6「写操作面极小」：绑定是低频设置操作（Phase 1 仅 1 策略），不进日常写操作面。
 - **绑定 UI 推迟到 Phase 2**：多策略、频繁绑定 / 换 key / 迁移时，再做「只管映射、不碰 secret」的轻量 UI。
@@ -686,7 +718,7 @@ reported  = 最新 account_balance_snapshot[account][asset]   ← 第 2 章拉�
 
 ### 8.4 对账面板
 
-- 系统虚拟账本（computed）vs Binance 实际（reported）**逐账户逐资产**比对，差异高亮。
+- 系统回放余额（computed）vs Binance 实际（reported）**逐账户逐资产**比对，差异高亮。
 - 四态（§5.3）映射到契约徽章：`MATCHED` → `badge good`「已对平」；`MISSING_EVENT` / `EXTERNAL_BALANCE_MISMATCH` → `badge risk`「对账差异 +0.0021 BTC」；`NEEDS_CLASSIFICATION` → `badge todo`。
 - 表格：账户、资产、computed、reported、`diff`（右对齐 tabular，差异带 +/− 不只靠色）、状态、上次对账时间。展示全局守恒校验结果。
 - 差异可钻取「可能来源」（漏 Convert / Dust / Dividend / 钱包划转 / 未知 symbol）。
@@ -710,14 +742,14 @@ reported  = 最新 account_balance_snapshot[account][asset]   ← 第 2 章拉�
 
 ### 8.8 绑定与凭证健康（只读）
 
-- 展示策略 ↔ 子账户绑定、上次体检结果（`api_key_health_check`）、`BLOCK` / `WARN`（§3.9）；失效推送告警。
+- 展示策略 ↔ 子账户绑定、上次体检结果（`api_key_health_check`）、`BLOCK` / `WARN`（§3.9）；Phase 1 做站内告警，外部推送延后。
 - Phase 1 **不在 UI 做绑定写操作**；**secret 永不显示 / 永不录入网页**。
 
 ### 8.9 视觉与交互规则（沿用契约）
 
 - token 全取自 `:root`；复用 `panel` / `table` / `badge` / `btn` / `pill` / `tab` 组件，不新造。
 - 涨跌 / 差异**不只靠颜色**（▲▼ / +−）；右对齐 tabular 数字；细边框分层不靠大阴影。
-- 账户敏感信息（余额 / 地址）只在页面内；**推送通道绝不含**（与视觉契约 Push Card 一致）。
+- 账户敏感信息（余额 / 地址）只在页面内；**站内动态 / 未来推送均绝不含**（与视觉契约 Push Card 一致）。
 - 桌面优先；移动端只保留关键状态查看（同步状态 / 对账告警 / 待归属计数）。
 
 ### 8.10 衔接

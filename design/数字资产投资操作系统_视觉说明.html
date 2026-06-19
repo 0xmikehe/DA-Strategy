@@ -735,7 +735,7 @@
             <div class="context-left">
               <div class="pair">BTC / USDT</div>
               <div class="mini-stat"><strong>64,204.97</strong> <span class="positive">▲ +2.18%</span></div>
-              <div class="mini-stat">状态 <strong class="accent">分批配置</strong></div>
+              <div class="mini-stat">信号 <strong class="accent">趋势上升</strong></div>
             </div>
             <div class="context-right">
               <div class="dot"></div>
@@ -747,14 +747,14 @@
           <div class="content-grid">
             <div class="state-strip">
               <div class="metric-card">
-                <div class="metric-label">市场状态 Market State</div>
-                <div class="metric-value accent">分批配置</div>
-                <div class="metric-note">由趋势、ETF 资金流、稳定币流动性触发。</div>
+                <div class="metric-label">启用信号 Active Signal</div>
+                <div class="metric-value accent">趋势上升</div>
+                <div class="metric-note">由 BTC / ETH 趋势结构触发。</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label">ETF 资金流</div>
-                <div class="metric-value positive">+124M</div>
-                <div class="metric-note">24h 净流入</div>
+                <div class="metric-label">资金费率</div>
+                <div class="metric-value warning">偏热</div>
+                <div class="metric-note">Binance funding</div>
               </div>
               <div class="metric-card">
                 <div class="metric-label">ETH/BTC</div>
@@ -785,10 +785,10 @@
                   <tr><th>来源</th><th class="right">数值</th><th class="right">状态</th></tr>
                 </thead>
                 <tbody>
-                  <tr><td>ETF 资金流 <span class="src-tag rule">规则</span></td><td class="right positive">+124M</td><td class="right positive">强</td></tr>
-                  <tr><td>稳定币 <span class="src-tag rule">规则</span></td><td class="right">中性</td><td class="right">观察</td></tr>
+                  <tr><td>BTC 趋势 <span class="src-tag rule">规则</span></td><td class="right positive">上升</td><td class="right positive">启用</td></tr>
+                  <tr><td>资金费率 <span class="src-tag rule">规则</span></td><td class="right warning">偏热</td><td class="right warning">启用</td></tr>
                   <tr><td>情绪 <span class="src-tag ai">AI · 准确率 71%</span></td><td class="right warning">偏高</td><td class="right warning">待复核</td></tr>
-                  <tr><td>美股宏观 <span class="src-tag rule">规则</span></td><td class="right">分化</td><td class="right">中性</td></tr>
+                  <tr><td>持仓量 <span class="src-tag rule">规则</span></td><td class="right">扩张</td><td class="right">观察</td></tr>
                 </tbody>
               </table>
             </section>
@@ -842,7 +842,7 @@
         <div class="type-samples">
           <div class="type-row">
             <div class="type-meta">Page / 22</div>
-            <div class="type-copy" style="font-size:22px;font-weight:650">市场状态与快照</div>
+            <div class="type-copy" style="font-size:22px;font-weight:650">市场信号与快照</div>
             <div class="type-meta">650</div>
           </div>
           <div class="type-row">
@@ -919,7 +919,7 @@
         <div class="density-list">
           <div class="density-item">
             <b>市场页</b>
-            <span>最高密度。图表、指标面板、状态历史、快照查看器并列；冷蓝强调最多。</span>
+            <span>最高密度。图表、指标面板、信号历史、快照查看器并列；冷蓝强调最多。</span>
           </div>
           <div class="density-item">
             <b>账本页</b>
@@ -939,45 +939,44 @@
 
     <section class="section-grid">
       <div class="section">
-        <h2>Market State &amp; History 状态词表与历史</h2>
-        <p>市场状态只能取以下六个可证伪标签之一，由数据规则得出，无人工覆写。状态历史以时间线呈现，标注触发依据与快照 ID；切换受滞后容忍约束，避免抖动。</p>
+        <h2>Market Signals &amp; History 信号词表与历史</h2>
+        <p>Phase 1 输出多维信号原子，由数据规则得出，无人工覆写。信号历史以时间线呈现，标注触发依据与快照 ID；切换受滞后容忍约束，避免抖动。综合状态若未来使用，只能作为信号原子之上的合成层。</p>
         <div class="state-row">
-          <span class="state-chip">防守</span>
-          <span class="state-chip">观察</span>
-          <span class="state-chip">试探</span>
-          <span class="state-chip is-active">分批配置</span>
-          <span class="state-chip">暂停加仓</span>
-          <span class="state-chip">降低风险</span>
+          <span class="state-chip is-active">BTC 趋势：上升</span>
+          <span class="state-chip">ETH/BTC：持平</span>
+          <span class="state-chip">资金费率：偏热</span>
+          <span class="state-chip">持仓量：扩张</span>
+          <span class="state-chip">多空比：中性</span>
         </div>
         <div class="timeline">
           <div class="tl-item">
             <div class="tl-time">06-13 18:40</div>
             <div class="tl-rail"><div class="tl-dot"></div></div>
-            <div><div class="tl-state">分批配置 <span class="src-tag rule">规则</span></div><div class="tl-meta">趋势上行 + ETF 连续净流入 · 快照 #2048</div></div>
+            <div><div class="tl-state">BTC 趋势：上升 <span class="src-tag rule">规则</span></div><div class="tl-meta">趋势上行 + 确认窗口通过 · 快照 #2048</div></div>
           </div>
           <div class="tl-item">
             <div class="tl-time">06-09 12:00</div>
             <div class="tl-rail"><div class="tl-dot"></div></div>
-            <div><div class="tl-state">试探</div><div class="tl-meta">站上 200D 均线，等待资金流确认 · 快照 #2012</div></div>
+            <div><div class="tl-state">BTC 趋势：上升</div><div class="tl-meta">站上 200D 均线并通过确认窗口 · 快照 #2012</div></div>
           </div>
           <div class="tl-item">
             <div class="tl-time">05-28 09:00</div>
             <div class="tl-rail"><div class="tl-dot muted"></div></div>
-            <div><div class="tl-state">观察</div><div class="tl-meta">区间震荡，无明确方向 · 快照 #1967</div></div>
+            <div><div class="tl-state">BTC 趋势：震荡</div><div class="tl-meta">区间震荡，未触发加仓信号 · 快照 #1967</div></div>
           </div>
         </div>
       </div>
 
       <div class="section">
         <h2>Snapshot &amp; Falsifiability 快照与可证伪</h2>
-        <p>每次状态判定写入「决策时点快照」。点开快照进入<strong>冻结态</strong>：所有数据为当时存档值、非实时，用紫色「已冻结」标记并灰化刷新动作——这是「可证伪的肉眼验证入口」。AI 来源与数据规则来源在界面和存储中严格区分。</p>
+        <p>每次信号判定写入「决策时点快照」。点开快照进入<strong>冻结态</strong>：所有数据为当时存档值、非实时，用紫色「已冻结」标记并灰化刷新动作——这是「可证伪的肉眼验证入口」。AI 来源与数据规则来源在界面和存储中严格区分。</p>
         <section class="panel" style="margin-top:12px;">
           <div class="panel-head"><span>快照查看器 · #2048</span><span class="frozen-tag">已冻结 · 06-13 18:40</span></div>
           <table class="table">
             <thead><tr><th>输入维度</th><th class="right">当时值</th><th class="right">来源</th></tr></thead>
             <tbody>
               <tr><td>BTC 趋势</td><td class="right positive">上行</td><td class="right"><span class="src-tag rule">规则</span></td></tr>
-              <tr><td>ETF 资金流</td><td class="right positive">+124M</td><td class="right"><span class="src-tag rule">规则</span></td></tr>
+              <tr><td>资金费率</td><td class="right warning">偏热</td><td class="right"><span class="src-tag rule">规则</span></td></tr>
               <tr><td>市场情绪</td><td class="right warning">偏高</td><td class="right"><span class="src-tag ai">AI · 71%</span></td></tr>
             </tbody>
           </table>
@@ -1046,13 +1045,13 @@
       </div>
 
       <div class="section">
-        <h2>Push Card 推送卡片</h2>
-        <p>推送通道是「日常主入口」，负责「该看了」。卡片只发信号与提醒、绝不含余额等账户敏感信息；推送负责触发，页面负责深究。</p>
+        <h2>Signal Activity 信号动态</h2>
+        <p>Phase 1 先做站内信号动态；外部推送通道延后。动态卡片只发信号与提醒、绝不含余额等账户敏感信息；动态负责触发，页面负责深究。</p>
         <div class="push-card">
-          <div class="push-head"><span class="bot">资产 OS Bot</span><span>· 状态切换</span></div>
+          <div class="push-head"><span class="bot">资产 OS</span><span>· 信号切换</span></div>
           <div class="push-body">
-            <div class="pt">市场状态：试探 → 分批配置</div>
-            <div class="pm">触发：BTC 趋势上行 + ETF 连续净流入。建议查看快照 #2048 与策略仓位计划。</div>
+            <div class="pt">BTC 趋势：震荡 → 上升</div>
+            <div class="pm">触发：BTC 日线趋势结构确认。建议查看快照 #2048 与策略仓位计划。</div>
           </div>
           <div class="push-foot">06-13 18:40 · 不含持仓与余额 · 点此打开市场页</div>
         </div>
