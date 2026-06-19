@@ -13,3 +13,4 @@
 | [0005](0005-strategy-layer-methodology-baseline.md) | 策略层方法论基线（策略为第一公民 · 信号→动作映射归策略 · 版本化复盘 · AI 仅润色） | Accepted | strategy（消费 signal/ledger） | 2026-06-16 |
 | [0006](0006-phase1-technical-baseline.md) | Phase 1 技术栈与运行基线 | Accepted | 全局（ledger / signal / strategy / docs） | 2026-06-19 |
 | [0007](0007-phase1-cross-layer-contracts.md) | Phase 1 跨层契约基线 | Accepted | 全局（ledger / signal / strategy） | 2026-06-19 |
+| [0008](0008-p1-snapshot-content-storage.md) | P1 快照内容存储路径 | Accepted | ledger / signal / strategy / frontend | 2026-06-19 |

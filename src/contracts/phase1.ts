@@ -40,6 +40,30 @@ export type SignalSnapshotRef = {
   content_hash: string;
 };
 
+export type SignalSnapshotInputKind = "market_candle_fact" | "funding_rate_fact";
+
+export type SignalSnapshotInputRef = {
+  kind: SignalSnapshotInputKind;
+  ref: {
+    source: string;
+    symbol: string;
+    interval?: string;
+    open_time?: IsoDateTimeString;
+    funding_time?: IsoDateTimeString;
+  };
+};
+
+// 决策时点快照内容本体。signal 产出、ledger 存入 decision_snapshot.content_json、
+// BFF 解析、前端只消费摘要。详见 ADR-0008 与 docs/api/p1-er.md §4.3。
+export type SignalSnapshotContent = {
+  snapshot_id: StableId;
+  evaluated_at: IsoDateTimeString;
+  schema_version: string;
+  active_signal_set: ActiveSignalSet;
+  input_refs: SignalSnapshotInputRef[];
+  data_health: DataHealth;
+};
+
 export type LedgerAssetPosition = {
   asset: string;
   free_qty: DecimalString;

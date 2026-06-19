@@ -13,6 +13,16 @@ P0 只冻结 Phase 1 的最小 DTO，不实现三层业务闭环。P1 开始，�
 - Ledger 可以引用 `StrategyVersionRef` / `StrategyBindingRef`，但不解释策略规则。
 - 财务数量、价格、金额、费用均使用 decimal string。
 - 时间统一使用 UTC ISO 8601 字符串。
+- P1 快照内容以 `decision_snapshot.content_json` 为主路径；`content_ref` 仅作为后续外部归档预留。
+- P1 不单独建立 `signal_snapshot_content` 表；`content_json` 直接承载 signal 定义的 `SignalSnapshotContent`。
+- P1 业务表、字段和关系见 `docs/api/p1-er.md`。
+
+## Runtime Validation
+
+- `src/contracts/phase1.ts` 保持 TypeScript DTO 类型定义。
+- P1.2 新增 `src/contracts/phase1.schemas.ts` 承载 zod runtime schema。
+- DB JSON、fixture 输入、BFF / API 输出进入跨层边界时必须执行 `parse` 或 `safeParse`。
+- 前端只消费 BFF / read model 暴露的 summary，不直接读取 `content_json` 或 `raw_payload`。
 
 ## DTO
 
