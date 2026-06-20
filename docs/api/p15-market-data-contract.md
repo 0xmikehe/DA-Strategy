@@ -118,8 +118,9 @@ source + fact_type + symbol + period + event_time
 Upsert rule:
 
 - Same unique key must not create duplicate facts.
-- Re-fetching the same market timestamp may update normalized values, `content_hash`, `raw_payload`, and `collected_at`.
-- Implementation must record enough data to detect source revisions by comparing `content_hash`.
+- Re-fetching the same market timestamp may update normalized values, `content_hash`, and `raw_payload`.
+- Re-fetching the same market timestamp must preserve the first `collected_at`, because replay uses it as system knowledge time.
+- Implementation must record enough data to detect source revisions by comparing `content_hash`; P2+ may add a revision log if source revisions need full audit history.
 
 ## 4. Time Semantics
 
@@ -260,4 +261,3 @@ History table required columns:
 | `content_hash` | short display of `content_hash` |
 
 The page must remain read-only. It must not include confirmation controls, strategy actions, or signal enable/disable controls in P1.5.
-

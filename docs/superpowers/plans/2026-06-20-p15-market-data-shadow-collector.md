@@ -433,7 +433,7 @@ Replay rule:
 
   Use unique key `(source, factType, symbol, period, eventTime)`.
 
-  Existing rows may update `collectedAt`, `contentHash`, and normalized values when re-fetched. They must not create duplicates.
+  Existing rows may update `contentHash`, `rawPayload`, and normalized values when re-fetched. They must preserve first `collectedAt` because replay uses it as system knowledge time. They must not create duplicates.
 
 - [ ] **Step 3: Implement query helper**
 

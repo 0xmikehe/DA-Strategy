@@ -4,3 +4,9 @@ export const signalFactsModule = {
   phase: "phase1-p0",
   responsibility: "Binance-sourced market facts and collector metadata"
 } as const;
+
+export {
+  normalizeMarketDerivedFact,
+  queryMarketDerivedFacts,
+  upsertMarketDerivedFacts
+} from "./market-derived-facts";

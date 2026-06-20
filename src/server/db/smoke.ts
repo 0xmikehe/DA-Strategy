@@ -12,6 +12,7 @@ export type DatabaseSmokeResult = {
     asset_pool_item: number;
     market_candle_fact: number;
     funding_rate_fact: number;
+    market_derived_fact: number;
     exchange_account: number;
     strategy_account_binding: number;
     ledger_event: number;
@@ -31,6 +32,7 @@ export async function checkDatabaseConnection(): Promise<DatabaseSmokeResult> {
     assetPoolItemCount,
     marketCandleFactCount,
     fundingRateFactCount,
+    marketDerivedFactCount,
     exchangeAccountCount,
     strategyAccountBindingCount,
     ledgerEventCount,
@@ -46,6 +48,7 @@ export async function checkDatabaseConnection(): Promise<DatabaseSmokeResult> {
     prisma.assetPoolItem.count(),
     prisma.marketCandleFact.count(),
     prisma.fundingRateFact.count(),
+    prisma.marketDerivedFact.count(),
     prisma.exchangeAccount.count(),
     prisma.strategyAccountBinding.count(),
     prisma.ledgerEvent.count(),
@@ -66,6 +69,7 @@ export async function checkDatabaseConnection(): Promise<DatabaseSmokeResult> {
       asset_pool_item: assetPoolItemCount,
       market_candle_fact: marketCandleFactCount,
       funding_rate_fact: fundingRateFactCount,
+      market_derived_fact: marketDerivedFactCount,
       exchange_account: exchangeAccountCount,
       strategy_account_binding: strategyAccountBindingCount,
       ledger_event: ledgerEventCount,
