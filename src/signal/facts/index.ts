@@ -10,3 +10,7 @@ export {
   queryMarketDerivedFacts,
   upsertMarketDerivedFacts
 } from "./market-derived-facts";
+export {
+  collectShadowMarketData,
+  marketDataShadowFactTypes
+} from "./collect-shadow-market-data";
