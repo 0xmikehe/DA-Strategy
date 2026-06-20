@@ -16,6 +16,7 @@ P0 只冻结 Phase 1 的最小 DTO，不实现三层业务闭环。P1 开始，�
 - P1 快照内容以 `decision_snapshot.content_json` 为主路径；`content_ref` 仅作为后续外部归档预留。
 - P1 不单独建立 `signal_snapshot_content` 表；`content_json` 直接承载 signal 定义的 `SignalSnapshotContent`。
 - P1 业务表、字段和关系见 `docs/api/p1-er.md`。
+- P1.5 市场数据影子采集契约见 `docs/api/p15-market-data-contract.md`。
 
 ## Runtime Validation
 
@@ -40,6 +41,7 @@ P0 只冻结 Phase 1 的最小 DTO，不实现三层业务闭环。P1 开始，�
 | `SyncSymbolSet` | strategy | ledger | 账本同步所需 spot symbol 集合 |
 | `PlannedAction` | strategy | frontend / review | 策略基于快照与账本视图生成的计划动作 |
 | `ReviewDraft` | strategy | frontend | 周期复盘草稿 |
+| `P15MarketDataReadModel` | signal / server read model | frontend | P1.5 市场数据影子采集 latest + history 视图 |
 
 ## P0 Fixture Rule
 

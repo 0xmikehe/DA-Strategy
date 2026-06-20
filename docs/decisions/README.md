@@ -14,3 +14,4 @@
 | [0006](0006-phase1-technical-baseline.md) | Phase 1 技术栈与运行基线 | Accepted | 全局（ledger / signal / strategy / docs） | 2026-06-19 |
 | [0007](0007-phase1-cross-layer-contracts.md) | Phase 1 跨层契约基线 | Accepted | 全局（ledger / signal / strategy） | 2026-06-19 |
 | [0008](0008-p1-snapshot-content-storage.md) | P1 快照内容存储路径 | Accepted | ledger / signal / strategy / frontend | 2026-06-19 |
+| [0009](0009-p15-market-data-shadow-collector.md) | P1.5 市场数据影子采集器 | Accepted | signal / frontend / docs | 2026-06-20 |

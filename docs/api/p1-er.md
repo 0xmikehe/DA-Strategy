@@ -83,6 +83,7 @@ erDiagram
 
   MARKET_CANDLE_FACT }o..o{ DECISION_SNAPSHOT : logical_input_ref
   FUNDING_RATE_FACT }o..o{ DECISION_SNAPSHOT : logical_input_ref
+  MARKET_DERIVED_FACT }o..o{ DECISION_SNAPSHOT : future_logical_input_ref
 
   JOB_RUN }o..o| SYNC_CURSOR : advances_logically
 
@@ -169,6 +170,24 @@ erDiagram
     decimal mark_price
     json raw_payload
     datetime created_at
+  }
+
+  MARKET_DERIVED_FACT {
+    string id PK
+    string source
+    string fact_type
+    string symbol
+    string period
+    datetime event_time
+    datetime collected_at
+    decimal sum_open_interest
+    decimal sum_open_interest_value
+    decimal cmc_circulating_supply
+    decimal long_short_ratio
+    decimal long_ratio
+    decimal short_ratio
+    string content_hash
+    json raw_payload
   }
 
   LEDGER_EVENT {
@@ -420,6 +439,47 @@ Indexes:
 - unique: `source + symbol + funding_time`
 - index: `symbol + funding_time`
 
+#### `market_derived_fact`（P1.5 delta）
+
+Owner: signal/facts
+
+Purpose: P1.5 Binance public futures-data 影子采集事实表。它保存 OI / 多空比等不可完整回填的数据，为后续信号回看和策略复盘沉淀历史；P1.5 不把这些事实晋升为启用态信号，也不驱动策略动作。
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `id` | string | PK | 行 ID |
+| `source` | string | required | P1.5 默认 `binance_usds_futures`；P2+ 可扩展其它 provider / venue |
+| `fact_type` | string enum | required | `open_interest_hist` / `global_long_short_account_ratio` / `top_long_short_position_ratio` / `top_long_short_account_ratio` |
+| `symbol` | string | required | P1.5 第一刀为 `BTCUSDT` |
+| `period` | string | required | P1.5 第一刀为 `1h` |
+| `event_time` | datetime | required | 市场事实对应的 Binance timestamp |
+| `collected_at` | datetime | required | 本系统采集并存储该事实的时间 |
+| `sum_open_interest` | decimal | nullable | OI fact 的持仓量 |
+| `sum_open_interest_value` | decimal | nullable | OI fact 的名义价值 |
+| `cmc_circulating_supply` | decimal | nullable | Binance OI payload 可选字段 |
+| `long_short_ratio` | decimal | nullable | 多空比 fact 的 ratio |
+| `long_ratio` | decimal | nullable | 多头账户/持仓比例 |
+| `short_ratio` | decimal | nullable | 空头账户/持仓比例 |
+| `content_hash` | string | required | 归一化 source payload 的稳定 hash |
+| `raw_payload` | json | required | 原始公开行情 payload，仅 DB 保存，read model 不暴露 |
+
+Indexes:
+
+- unique: `source + fact_type + symbol + period + event_time`
+- index: `symbol + period + fact_type + event_time`
+- index: `fact_type + collected_at`
+
+Replay 口径：
+
+- `event_time` 回答「这条数据描述哪个市场时间点」。
+- `collected_at` 回答「系统什么时候知道这条数据」。
+- 后续 signal replay / strategy review 必须按 `collected_at <= replay_as_of` 限制可见事实，不能把未来才采集到的事实带入过去。
+
+Read model 口径：
+
+- `/market-data` 可展示 latest summary、history rows、freshness、lag、missing points。
+- 前端只接收归一化 summary/history，不接收 `raw_payload`。
+
 ### 4.3 Snapshot
 
 #### `decision_snapshot`
@@ -648,6 +708,7 @@ Unique:
 | `capital_flow_event.ledger_event_id` | `ledger_event.event_id` | Hard FK | capital flow detail 对应 envelope |
 | `capital_flow_event.exchange_account_id` | `exchange_account.id` | Hard FK | capital flow 归账户 |
 | `decision_snapshot.content_json.input_refs` | `market_candle_fact` / `funding_rate_fact` | Logical Ref | P1 不建 join table |
+| future `decision_snapshot.content_json.input_refs` | `market_derived_fact` | Logical Ref | P1.5 只沉淀 shadow facts；P2+ 晋升信号后才可进入快照输入 |
 
 ## 6. P1 Fixture 最小路径
 
@@ -690,6 +751,36 @@ P1 fixture 应该能跑通以下最小实例：
 | `reconciliationStatus`（账本页 / read model） | P1 无对账表，**fixture 常量**展示值（如 `fixture_reconciled`），不依赖 `reconciliation_run`。 | 真实对账归 P2。 |
 
 口径原则：P1 这些值只为「走通且可看见」服务，必须在 read model 层标注为 fixture 来源，不得伪装成真实账户/同步/对账结果。
+
+## 6.2 P1.5 市场数据影子路径
+
+P1.5 在 P1 walking skeleton 之上新增真实公开市场 facts 的影子采集路径：
+
+1. `worker` 显式开启 shadow collector。
+2. `src/signal/facts/` 调用 Binance public futures-data endpoint。
+3. payload 归一化并写入 `market_derived_fact`。
+4. `/market-data` read model 聚合 latest 与 history。
+5. 页面展示 shadow / 观察中 / 不驱动策略的市场事实历史。
+
+P1.5 最小实例：
+
+1. `market_derived_fact`
+   - `source = binance_usds_futures`
+   - `symbol = BTCUSDT`
+   - `period = 1h`
+   - `fact_type in {open_interest_hist, global_long_short_account_ratio, top_long_short_position_ratio, top_long_short_account_ratio}`
+2. `/market-data`
+   - 展示 collector health、latest cards、history table。
+   - 支持按 `symbol` / `period` / `fact_type` / time range 的 read model 语义。
+3. `sync_cursor`
+   - 可用于记录 shadow collector 的推进位置；P1.5 不要求前端直接展示 cursor 原始值。
+
+P1.5 明确不做：
+
+- 不把 `market_derived_fact` 直接交给 strategy。
+- 不生成新的 planned action。
+- 不改变现有 `decision_snapshot.content_json` 主路径。
+- 不保存账户 API key 或调用任何需要签名的 endpoint。
 
 ## 7. P1 明确不建的表
 
