@@ -77,17 +77,28 @@ async function collectMarketDataFromEnv(
   config: ShadowMarketDataCollectorConfig
 ): Promise<ShadowMarketDataCollectionResult> {
   const env = getServerEnv();
-  const [{ createBinanceFuturesDataClient }, { upsertMarketDerivedFacts }, { prisma }] = await Promise.all([
+  const [
+    { createBinanceFuturesDataClient },
+    { upsertMarketDerivedFacts },
+    { runMarketDataCollectionJob },
+    { prisma }
+  ] = await Promise.all([
     import("@/signal/facts/binance-futures-data-client"),
     import("@/signal/facts/market-derived-facts"),
+    import("@/server/jobs/run-market-data-collection-job"),
     import("@/server/db/prisma")
   ]);
 
-  return collectShadowMarketData(config, {
-    client: createBinanceFuturesDataClient({
-      baseUrl: env.BINANCE_FAPI_BASE_URL
-    }),
-    storeFacts: (facts) => upsertMarketDerivedFacts(prisma, facts)
+  return runMarketDataCollectionJob({
+    db: prisma,
+    targetKey: `${config.symbols.join(",")}:${config.period}`,
+    collect: () =>
+      collectShadowMarketData(config, {
+        client: createBinanceFuturesDataClient({
+          baseUrl: env.BINANCE_FAPI_BASE_URL
+        }),
+        storeFacts: (facts) => upsertMarketDerivedFacts(prisma, facts)
+      })
   });
 }
 

@@ -60,6 +60,10 @@ P1 的 `content_hash` 计算规则应在实现时固定：
 
 这保证同一份内容在不同运行中得到同一 hash。
 
+### 2.4 枚举字段实现
+
+下表各列里写成「`status` / `role` / `side` / `flow_type` / `fact_type` 取某几个固定值」的字段，**实现上统一落成 PostgreSQL enum**（如 `StrategyVersionStatus`、`AssetRole`、`AssetStatus`、`BindingState`、`PlannedActionStatus`、`ReviewDraftStatus`、`TradeSide`、`CapitalFlowType`、`MarketDerivedFactType`），不是自由 `string`。本文表格为可读性把它们标为 `string` + 注释枚举值，但 schema 以 enum 为准，由数据库层保证取值合法；zod 在跨层边界再做一次运行时校验。新增取值时必须同时改 enum 与对应 zod schema。
+
 ## 3. ER 图
 
 ```mermaid
