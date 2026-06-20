@@ -597,7 +597,7 @@ textarea {
 
 .entry-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
 }
@@ -622,6 +622,82 @@ textarea {
   margin: 8px 0 0;
   color: var(--muted);
   font-size: 12px;
+}
+
+.market-data-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.market-data-grid {
+  display: grid;
+  grid-template-columns: minmax(680px, 1.34fr) minmax(360px, 0.66fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.market-data-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.market-data-metric {
+  min-height: 164px;
+}
+
+.metric-card-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.metric-card-head .metric-label {
+  margin-bottom: 5px;
+}
+
+.metric-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.metric-mini-grid div {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding-top: 8px;
+}
+
+.metric-mini-grid span,
+.market-data-history small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.metric-mini-grid strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 620;
+}
+
+.market-data-history td:nth-child(1) {
+  width: 22%;
+}
+
+.market-data-history td:nth-child(2) {
+  width: 24%;
+}
+
+.market-data-history small {
+  margin-top: 2px;
+  text-transform: none;
 }
 
 .review-section {
@@ -669,6 +745,14 @@ textarea {
   .metric-strip {
     grid-template-columns: minmax(220px, 1.35fr) repeat(4, minmax(168px, 1fr));
   }
+
+  .market-data-strip {
+    grid-template-columns: repeat(4, minmax(210px, 1fr));
+  }
+
+  .market-data-grid {
+    grid-template-columns: minmax(980px, 1.46fr) minmax(460px, 0.54fr);
+  }
 }
 
 @media (min-width: 2560px) {
@@ -684,12 +768,21 @@ textarea {
   .chart-panel {
     min-height: 304px;
   }
+
+  .market-data-grid {
+    grid-template-columns: minmax(1320px, 1.6fr) minmax(520px, 0.4fr);
+  }
+
+  .market-data-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1360px) {
   .grid-home,
   .grid-market,
-  .grid-ledger {
+  .grid-ledger,
+  .market-data-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -708,7 +801,7 @@ textarea {
     bottom: auto;
     display: grid;
     height: 48px;
-    grid-template-columns: repeat(3, 38px);
+    grid-template-columns: repeat(4, 38px);
     justify-content: center;
     border-right: 0;
     border-bottom: 1px solid var(--line);
@@ -755,6 +848,8 @@ textarea {
 
   .metric-strip,
   .entry-grid,
+  .market-data-strip,
+  .market-data-metrics,
   .snapshot-grid {
     grid-template-columns: 1fr;
   }

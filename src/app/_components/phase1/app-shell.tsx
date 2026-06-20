@@ -3,22 +3,24 @@ import React from "react";
 import type { ReactNode } from "react";
 import { StatusBadge } from "./status-badge";
 
-type ActiveSection = "home" | "market" | "ledger";
+type ActiveSection = "home" | "market" | "marketData" | "ledger";
 
 type AppShellProps = {
   active: ActiveSection;
   title: string;
   context: string;
+  badges?: ReactNode;
   children: ReactNode;
 };
 
 const navItems = [
   { href: "/", key: "home", label: "H", title: "首页" },
   { href: "/market", key: "market", label: "M", title: "市场页" },
+  { href: "/market-data", key: "marketData", label: "D", title: "行情数据页" },
   { href: "/ledger", key: "ledger", label: "L", title: "账本页" }
 ] satisfies Array<{ href: string; key: ActiveSection; label: string; title: string }>;
 
-export function AppShell({ active, title, context, children }: AppShellProps) {
+export function AppShell({ active, title, context, badges, children }: AppShellProps) {
   return (
     <div className="workspace-shell">
       <nav className="side-rail" aria-label="主导航">
@@ -42,8 +44,12 @@ export function AppShell({ active, title, context, children }: AppShellProps) {
               <div className="mini-stat">{context}</div>
             </div>
             <div className="topbar-right">
-              <StatusBadge tone="good">fixture_synced</StatusBadge>
-              <StatusBadge tone="frozen">snapshot sealed</StatusBadge>
+              {badges ?? (
+                <>
+                  <StatusBadge tone="good">fixture_synced</StatusBadge>
+                  <StatusBadge tone="frozen">snapshot sealed</StatusBadge>
+                </>
+              )}
             </div>
           </div>
         </header>

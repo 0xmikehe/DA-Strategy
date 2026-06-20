@@ -7,7 +7,8 @@ const checkpoints = [
   ["P1.1", "业务表 migration", "strategy_version / ledger_event / market facts"],
   ["P1.2", "fixture 计算闭环", "signal snapshot / ledger replay / planned action"],
   ["P1.3", "BFF read model", "market + ledger summary API"],
-  ["P1.4", "只读页面", "market page + ledger page"]
+  ["P1.4", "只读页面", "market page + ledger page"],
+  ["P1.5", "行情影子采集", "market-data page + Binance public facts"]
 ] as const;
 
 export default function HomePage() {
@@ -25,6 +26,9 @@ export default function HomePage() {
           <div className="action-row">
             <Link className="button primary" href="/market">
               市场页
+            </Link>
+            <Link className="button" href="/market-data">
+              行情数据页
             </Link>
             <Link className="button" href="/ledger">
               账本页
@@ -84,6 +88,14 @@ export default function HomePage() {
                 <StatusBadge tone="good">risk_regime</StatusBadge>
                 <StatusBadge tone="good">core_tilt</StatusBadge>
                 <StatusBadge tone="good">funding_sentiment</StatusBadge>
+              </div>
+            </Link>
+            <Link className="entry-card" href="/market-data">
+              <h2>行情数据页</h2>
+              <p>查看 Binance public futures-data 的影子采集结果、缺口、延迟和历史记录。这里是 P1.5 的数据验收入口。</p>
+              <div className="badge-row align-left">
+                <StatusBadge tone="warn">shadow</StatusBadge>
+                <StatusBadge tone="good">history</StatusBadge>
               </div>
             </Link>
             <Link className="entry-card" href="/ledger">
