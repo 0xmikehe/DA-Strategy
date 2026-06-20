@@ -53,8 +53,8 @@ describe("Binance futures data client", () => {
     }
 
     for (const [index, [, expectedPath]] of cases.entries()) {
-      const [url, init] = fetchMock.mock.calls[index];
-      const parsedUrl = new URL(url as string);
+      const [url, init] = fetchMock.mock.calls[index] as unknown as [string, RequestInit];
+      const parsedUrl = new URL(url);
 
       expect(parsedUrl.origin).toBe("https://fapi.binance.com");
       expect(parsedUrl.pathname).toBe(expectedPath);
