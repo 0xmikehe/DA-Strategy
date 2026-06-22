@@ -40,14 +40,15 @@ const valueLabelByType = {
 } satisfies Record<MarketDataFactType, string>;
 
 export function buildP15MarketDataReadModel(input: BuildP15MarketDataReadModelInput): P15MarketDataReadModel {
-  const generatedAt = input.generatedAt ?? new Date();
   const selectedSymbol = input.selectedSymbol ?? "BTCUSDT";
   const selectedPeriod = input.selectedPeriod ?? "1h";
   const selectedRange = input.selectedRange ?? "24h";
+  const usingFallbackRows = input.rows.length === 0 && (input.fallbackRows?.length ?? 0) > 0;
   const sourceRows = input.rows.length > 0 ? input.rows : (input.fallbackRows ?? []);
   const rows = sourceRows
     .filter((row) => row.symbol === selectedSymbol && row.period === selectedPeriod)
     .sort(compareMarketDataRowsDesc);
+  const generatedAt = input.generatedAt ?? (usingFallbackRows ? fallbackGeneratedAt(rows) : new Date());
   const history = rows.filter((row) => isWithinSelectedRange(row, generatedAt, selectedRange));
   const metrics = marketDataShadowFactTypes.map((factType) =>
     buildMetric({
@@ -252,6 +253,11 @@ function periodMinutes(period: string) {
 
 function addMinutes(date: Date, minutes: number) {
   return new Date(date.getTime() + minutes * 60000);
+}
+
+function fallbackGeneratedAt(rows: MarketDataFactRow[]) {
+  const latestCollectedAt = maxIso(rows.map((row) => row.collected_at));
+  return latestCollectedAt ? addMinutes(new Date(latestCollectedAt), 1) : new Date();
 }
 
 function decimalToString(value: PrismaMarketDerivedFact["sumOpenInterest"]) {

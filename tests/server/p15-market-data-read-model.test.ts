@@ -28,8 +28,7 @@ describe("P1.5 market data read model", () => {
   it("falls back to fixture history when the database has not collected rows yet", () => {
     const model = buildP15MarketDataReadModel({
       rows: [],
-      fallbackRows: p15MarketDataHistoryRows,
-      generatedAt: new Date("2026-06-20T03:10:00.000Z")
+      fallbackRows: p15MarketDataHistoryRows
     });
 
     expect(model.history).toHaveLength(12);
