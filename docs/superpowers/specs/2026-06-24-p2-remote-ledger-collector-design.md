@@ -20,16 +20,19 @@ The remote machine is the formal runtime for live collection. The local machine 
 2. **Ledger facts are the boundary**
    Remote output is normalized ledger-domain data: events, fills, flows, balance snapshots, reconciliation results, and health summaries.
 
-3. **Local verification stays offline**
+3. **Single ledger ingest service**
+   All ledger fact mutations go through one service, tentatively named `appendLedgerFacts()`. Collectors, importers, fixtures, manual controllers, attribution flows, and reversal flows may submit commands or packages, but they do not write source fact tables directly.
+
+4. **Local verification stays offline**
    `npm run verify` must not depend on live Binance or the remote machine. Live checks use explicit commands.
 
-4. **Secrets stay remote**
+5. **Secrets stay remote**
    Real API key and secret values live only on the remote runtime or future secret store. Local imports never require them.
 
-5. **Every imported fact is traceable**
+6. **Every imported fact is traceable**
    Export packages carry `export_run_id`, `source_env_id`, `sync_run_id`, `schema_version`, and `content_hash`.
 
-6. **Source mode is visible**
+7. **Source mode is visible**
    UI and read models must distinguish `fixture`, `mock`, `cassette`, `remote_import`, and `live`.
 
 ## 3. Runtime Modes
@@ -57,13 +60,54 @@ Responsibilities:
 - Call Binance signed `USER_DATA` endpoints from the remote runtime.
 - Apply weight budgeting, retry/backoff, and cursor windows.
 - Normalize responses into append-only ledger facts.
-- Write `account_balance_snapshot`.
+- Submit normalized facts to `appendLedgerFacts()`.
+- Submit `account_balance_snapshot` data through the same ingest batch.
 - Run reconciliation after each sync.
 - Record `job_run`, `sync_cursor`, and sync health.
 
-The collector writes to the remote Postgres database. It does not expose raw signed requests to local development.
+The collector does not write fact tables directly. It plans remote sync work, calls external APIs, normalizes responses, and hands a batch to the ledger ingest service.
 
-### 4.2 Remote Ledger Exporter
+### 4.2 Ledger Ingest Service
+
+Owner: `src/ledger/ingest/`
+
+This is the only component allowed to mutate ledger source facts.
+
+Responsibilities:
+
+- Accept normalized ledger commands from live sync, remote import, fixture/cassette seed, manual external trade entry, attribution, and reversal flows.
+- Validate source mode, schema version, actor, import/export metadata, and required trace IDs.
+- Enforce append-only semantics.
+- Apply idempotency keys consistently across `ledger_event`, `exchange_trade_fill`, `exchange_order`, `capital_flow_event`, `external_trade`, `account_balance_snapshot`, `reconciliation_result`, and future attribution/reversal tables.
+- Store import batch metadata for `remote_import` and cassette-derived data.
+- Reject ambiguous writes where source mode, idempotency key, or actor is missing.
+- Return a write summary for downstream reconciliation/read model refresh.
+
+Non-responsibilities:
+
+- It does not call Binance.
+- It does not render pages.
+- It does not export packages.
+- It does not calculate strategy actions.
+
+Every write path must be shaped like:
+
+```text
+adapter/controller/worker
+  -> validate external/input shape
+  -> normalize to ledger ingest command
+  -> appendLedgerFacts()
+  -> replay/reconciliation/read model
+```
+
+Forbidden shape:
+
+```text
+adapter/controller/worker
+  -> direct insert/update into ledger source tables
+```
+
+### 4.3 Remote Ledger Exporter
 
 Owner: `src/ledger/export/`
 
@@ -84,7 +128,7 @@ Preferred access paths:
 
 The endpoint is project-owned. It is not a Binance proxy.
 
-### 4.3 Local Ledger Importer
+### 4.4 Local Ledger Importer
 
 Owner: `src/ledger/import/`
 
@@ -93,13 +137,13 @@ Responsibilities:
 - Load a package from file or private endpoint.
 - Validate `schema_version`, `content_hash`, and required sections.
 - Reject packages from unknown `source_env_id` unless explicitly allowed.
-- Upsert/import facts idempotently.
+- Submit package facts to `appendLedgerFacts()` with `source_mode = "remote_import"`.
 - Record import metadata.
 - Mark local read models as `remote_import`.
 
-The importer may run against local Postgres only. It must not require Binance API key or secret values.
+The importer may run against local Postgres only. It must not require Binance API key or secret values, and it must not write ledger source tables except through the ingest service.
 
-### 4.4 Mock and Cassette Toolkit
+### 4.5 Mock and Cassette Toolkit
 
 Owner: `tests/fixtures`, `src/fixtures`, and ledger test helpers.
 
@@ -175,7 +219,7 @@ job_run(ledger_sync)
   -> endpoint window planning
   -> Binance signed requests
   -> normalize
-  -> append/upsert ledger facts
+  -> appendLedgerFacts(source_mode = live)
   -> balance snapshot
   -> replay
   -> reconciliation
@@ -199,7 +243,7 @@ remote DB
 download package
   -> verify manifest/hash/schema
   -> import metadata
-  -> idempotent upsert
+  -> appendLedgerFacts(source_mode = remote_import)
   -> replay locally
   -> page/read model source = remote_import
 ```
@@ -251,6 +295,8 @@ Must remain offline.
 
 Additional P2 tests:
 
+- Ingest service rejects any command without source mode, actor/import metadata, or idempotency key.
+- Live sync, remote import, cassette seed, and manual external trade tests all assert they call the same ingest boundary.
 - Package schema validation accepts valid exports and rejects malformed packages.
 - Importer is idempotent for repeated package imports.
 - Mock Binance client covers 429, blocked response, clock drift, duplicate page, and partial endpoint failure.
@@ -272,6 +318,7 @@ These commands are opt-in and may require remote secrets and live network.
 ### Step 1: Contract Freeze
 
 - Add ADR-0010.
+- Add the `appendLedgerFacts()` interface and source mode contract.
 - Add TypeScript schema for `LedgerExportPackage`.
 - Add redaction rules and import metadata schema.
 
@@ -279,6 +326,7 @@ These commands are opt-in and may require remote secrets and live network.
 
 - Build importer against fixture/cassette package.
 - Prove idempotent imports.
+- Prove importer writes only through `appendLedgerFacts()`.
 - Add page/read model data source mode.
 
 ### Step 3: Remote Exporter
@@ -292,7 +340,7 @@ These commands are opt-in and may require remote secrets and live network.
 
 - Implement signed client, key health, cursors, endpoint windows, and normalization.
 - Keep live commands opt-in.
-- Write remote DB facts.
+- Submit live batches through `appendLedgerFacts()`.
 
 ### Step 5: Reconciliation and Cassettes
 
@@ -308,6 +356,7 @@ These commands are opt-in and may require remote secrets and live network.
 - No requirement that CI reaches Binance.
 - No public multi-user account system.
 - No full Binance API mock compatibility layer.
+- No second ledger writer hidden in a controller, importer, worker, or page action.
 
 ## 13. Open Decisions for Implementation Planning
 

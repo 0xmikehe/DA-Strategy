@@ -41,12 +41,15 @@ P2 采用 **Remote Ledger Collector + Local Import Kit**：
    - 可选 `raw_payload_redacted`
 
 5. **本地导入必须幂等且可追溯**
-   本地 importer 校验 `schema_version`、`content_hash`、`export_run_id`、`source_env_id` 后写入本地 DB。重复导入同一包不得重复入账；所有导入批次保留导入记录。
+   本地 importer 校验 `schema_version`、`content_hash`、`export_run_id`、`source_env_id` 后，只能把导入包提交给同一个账本摄入服务写入本地 DB。重复导入同一包不得重复入账；所有导入批次保留导入记录。
 
-6. **数据来源必须显式展示**
+6. **账本事实只有一个写入内核**
+   live sync、remote import、fixture/cassette seed、外部交易录入、冲正和人工归属都只能调用同一个账本摄入服务（暂称 `appendLedgerFacts()`）。Binance client、remote exporter、local importer、页面 controller 都不是事实表 writer；它们只能生成或提交待摄入的领域命令 / 账本包。该服务统一负责校验、幂等键、只追加约束、导入批次记录和审计元数据。
+
+7. **数据来源必须显式展示**
    read model 和页面需要区分 `fixture` / `mock` / `cassette` / `remote_import` / `live`。本地 imported data 不得在 UI 上伪装成 live。
 
-7. **真实同步仍需显式触发**
+8. **真实同步仍需显式触发**
    默认本地和 CI 验证门不触发 live Binance 请求。live smoke、远端同步、远端导出、真实账号对账必须由人显式触发。
 
 ## 备选方案
@@ -72,6 +75,7 @@ P2 采用 **Remote Ledger Collector + Local Import Kit**：
 ## 影响
 
 - P2 账本同步实现前，必须先定义 `ledger_export_package` 契约、导出/导入幂等键、脱敏规则和数据来源枚举。
+- P2 账本同步实现前，必须先定义唯一账本摄入服务的接口、允许的来源类型、幂等键规则和失败语义。任何 controller / worker / importer 不得直接写事实表。
 - 账本层 PRD 需要补充“远端采集与本地导入”章节，说明 live 同步、mock、cassette、remote import 的职责边界。
 - `AGENTS.md` 的默认验证门继续保持离线；新增 live/remote 命令必须命名为显式 opt-in。
 - 远端首次真实账户同步前，仍必须满足 ADR-0006 的备份与恢复演练门槛。

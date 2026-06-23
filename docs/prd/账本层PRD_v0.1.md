@@ -46,6 +46,29 @@
 
 **不做**（Phase 1）：自动下单、自动划转（`POST` 类接口）、合约/杠杆/期权、税务处理、纸面策略的纯虚拟模拟账本（推迟到 Phase 2）。
 
+### 0.5 单一账本摄入入口（P2 约束）
+
+账本事实可以来自多种入口形态：Binance live sync、远端导入包、fixture / cassette seed、外部交易手工录入、冲正、人工归属。但它们**不得各自直接写事实表**。
+
+P2 起，所有会改变账户事实库的路径必须收束到同一个账本摄入服务（实现名暂定 `appendLedgerFacts()`）：
+
+```text
+外部来源 / 页面 controller / worker / importer
+  -> 校验输入与来源模式
+  -> 归一化为账本摄入命令
+  -> appendLedgerFacts()
+  -> 只追加事实表 + 导入/审计元数据
+```
+
+禁止形态：
+
+```text
+controller / worker / importer
+  -> 直接 insert/update ledger_event / exchange_trade_fill / capital_flow_event / external_trade
+```
+
+该服务统一负责：来源模式（`fixture` / `mock` / `cassette` / `remote_import` / `live`）、幂等键、只追加约束、导入批次、操作者 / 触发来源、冲正语义与审计元数据。这样入口形态可以增加，但事实写入内核只有一个。
+
 ---
 
 ## 第 1 章 核心数据模型
@@ -275,7 +298,7 @@
 3. **可断点续跑**：游标持久化，中断可继续。
 4. **守限频**：不触发 Binance 限频封禁。
 
-输入 = 第 3 章路由表；输出 = `exchange_trade_fill` / `exchange_order` / `capital_flow_event` + `account_balance_snapshot` + `sync_cursor`。
+输入 = 第 3 章路由表；输出 = 归一化账本摄入命令，经 `appendLedgerFacts()` 写入 `exchange_trade_fill` / `exchange_order` / `capital_flow_event` + `account_balance_snapshot` + `sync_cursor`。
 
 ### 2.2 同步对象 → 接口 → 约束（对齐第 1 章 taxonomy + 第 3 章路由）
 
@@ -325,7 +348,7 @@
 ### 2.6 幂等与去重
 
 - **幂等键**（第 1 章）：成交 = `account + symbol + trade_id`；资金流 = `account + event_type + external_id`。
-- 入账用 upsert / 冲突即跳过，使重复拉取、乱序到达无副作用（呼应 §1.6 全量回放）。
+- 入账只能通过 `appendLedgerFacts()` 内部的 upsert / 冲突跳过完成，使重复拉取、乱序到达无副作用（呼应 §1.6 全量回放）。同步器、controller、导入器不得绕过该服务直接写事实表。
 - **只入账终态成功**记录（`status = SUCCESS / CONFIRMED`）；`pending` 不入账，后续轮询转终态再入。
 
 ### 2.7 限频管理
@@ -522,7 +545,7 @@ BINANCE_STRATEGY_CORE_ALLOCATION_LT_API_SECRET=...
 
 - 队列展示：事件、账户、资产、数量、时间、疑似来源、建议归属。
 - 操作：归属到某策略（+ 版本）/ 标为外部 / 标为未分配 / 冲正（若系误记）。
-- **归属动作写一条 `attribution_record`（只追加）**，不改原成交 / 事件记录；on-exchange 成交的归属由账户绑定派生，外部 / 待归属项的归属由 `attribution_record` 给出。
+- **归属动作通过账本摄入服务写一条 `attribution_record`（只追加）**，不改原成交 / 事件记录；on-exchange 成交的归属由账户绑定派生，外部 / 待归属项的归属由 `attribution_record` 给出。
 - **批量归属**：如「某子账户绑定策略后，把其名下全部待归属成交一次归属」。
 - **重新归属**：追加新 `attribution_record`，最新生效、旧记录保留可追溯。
 
@@ -631,8 +654,8 @@ reported  = 最新 account_balance_snapshot[account][asset]   ← 第 2 章拉�
 
 1. 选择 / 新建外部钱包账户。
 2. 填最小字段。
-3. 提交 → 写 `external_trade`（只追加）。
-4. 归属：录入时可直接指定策略；否则进**待归属队列**（第 4 章），归属时写 `attribution_record`。
+3. 提交 → 归一化为账本摄入命令，经 `appendLedgerFacts()` 写 `external_trade`（只追加）。
+4. 归属：录入时可直接指定策略；否则进**待归属队列**（第 4 章），归属时同样通过账本摄入服务写 `attribution_record`。
 5. 自动参与回放（§1.6 纯函数）：lots / 持仓 / 成本随之纳入。
 
 ### 6.5 与对账的关系
@@ -727,7 +750,7 @@ reported  = 最新 account_balance_snapshot[account][asset]   ← 第 2 章拉�
 ### 8.5 待归属交易队列
 
 - 列出待归属项（§4.3）：事件、账户、资产、数量、时间、疑似来源、建议归属。数量用 `badge todo`；空队列用 `empty`「暂无」。
-- 写操作**归属交易**：归属到策略（+ 版本）/ 标为外部 / 标为未分配 / 冲正；支持**批量归属**。每次写 `attribution_record`（只追加，§4.4）。
+- 写操作**归属交易**：归属到策略（+ 版本）/ 标为外部 / 标为未分配 / 冲正；支持**批量归属**。每次通过 `appendLedgerFacts()` 写 `attribution_record`（只追加，§4.4）。
 
 ### 8.6 流水查询（只读）
 
@@ -737,7 +760,7 @@ reported  = 最新 account_balance_snapshot[account][asset]   ← 第 2 章拉�
 
 ### 8.7 外部交易录入
 
-- 写操作**录入外部交易**：最小字段表单（§6.3）；提交 → `external_trade` → 进待归属或直接指定策略。
+- 写操作**录入外部交易**：最小字段表单（§6.3）；提交 → `appendLedgerFacts()` → `external_trade` → 进待归属或直接指定策略。
 - 录错 → 冲正 + 重录（不直接改，§6.6）。
 
 ### 8.8 绑定与凭证健康（只读）
