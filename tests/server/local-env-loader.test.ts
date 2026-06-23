@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { getServerEnv } from "@/server/config/env";
+import { getServerEnv, parseServerEnv } from "@/server/config/env";
 
 const tmpDirs: string[] = [];
 const localDatabaseUrl =
@@ -19,6 +19,24 @@ afterEach(async () => {
 });
 
 describe("getServerEnv", () => {
+  it("provides safe public market data defaults without account API keys", () => {
+    const env = parseServerEnv({
+      DATABASE_URL: localDatabaseUrl,
+      BINANCE_API_KEY: "must_not_be_consumed",
+      BINANCE_API_SECRET: "must_not_be_consumed"
+    });
+
+    expect(env).toMatchObject({
+      BINANCE_FAPI_BASE_URL: "https://fapi.binance.com",
+      MARKET_DATA_SHADOW_ENABLED: false,
+      MARKET_DATA_SHADOW_SYMBOLS: ["BTCUSDT"],
+      MARKET_DATA_SHADOW_PERIOD: "1h",
+      MARKET_DATA_SHADOW_LIMIT: 48
+    });
+    expect("BINANCE_API_KEY" in env).toBe(false);
+    expect("BINANCE_API_SECRET" in env).toBe(false);
+  });
+
   it("loads DATABASE_URL from a local .env file for standalone Node processes", async () => {
     const cwd = await makeTempCwd();
     await writeFile(join(cwd, ".env"), `DATABASE_URL="${localDatabaseUrl}"\n`);
