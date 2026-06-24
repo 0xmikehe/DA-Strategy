@@ -1,0 +1,429 @@
+# Phase 1 / P0 工程骨架施工清单
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to execute this checklist task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 把 Phase 1 的技术与契约基线变成一个可运行、可测试、可继续并行施工的工程骨架。
+
+**Architecture:** P0 只落工程地基，不做三层业务闭环。它建立 Next.js / TypeScript / PostgreSQL / Prisma / worker / shared contracts / 验证门，让 P1 可以在同一套目录、命令和契约上实现行走骨架。
+
+**Tech Stack:** Next.js App Router + TypeScript + PostgreSQL + Prisma + Vitest + Playwright + 独立 Node worker。
+
+---
+
+## 0. 定位
+
+本文不是新的 phase，也不是新的 PRD。它只是 `Phase1 / P0` 的施工 runbook。
+
+- `Phase1`：覆盖 P0-P7 的完整第一阶段目标。
+- `P0`：工程骨架、验证门、技术栈、契约落地。
+- `P1`：三层最小行走骨架。
+- 本文只约束 P0，不把 P1/P1.5/P2 的业务实现提前塞进来。
+
+## 1. 输入与权威边界
+
+施工前必须先读：
+
+- `AGENTS.md`
+- `docs/implementation/phase1/phase1-master-plan.md`
+- `docs/decisions/0006-phase1-technical-baseline.md`
+- `docs/decisions/0007-phase1-cross-layer-contracts.md`
+- 涉及前端页面时再读 `design/数字资产投资操作系统_视觉说明.html`
+
+若上述文件冲突：
+
+1. 立项书边界优先于总 PRD。
+2. ADR-0006 是技术栈与运行基线权威。
+3. ADR-0007 是 Phase 1 跨层契约权威。
+4. `AGENTS.md` 是 agent 协作规则权威。
+
+## 2. P0 完成定义
+
+P0 完成时必须满足：
+
+- 仓库能用一套 npm 命令完成 lint / typecheck / test / Prisma schema validate / migration status / DB smoke。
+- 本地 Postgres 可通过 Docker Compose 启动，且 Compose 项目名固定为 `digital-asset`。
+- Prisma schema 存在并能 `prisma validate`；P0 初始 migration 已提交并能应用到本地 Postgres。
+- Next.js 应用能启动，至少有首页与 `/api/health`。
+- 独立 worker 入口能启动一次并安全退出，证明 worker 与 web 不是同一个进程假设。
+- `src/ledger/`、`src/signal/`、`src/signal/facts/`、`src/strategy/` 目录存在，且不互相越界 import。
+- `src/contracts/phase1.ts` 存在，承载 ADR-0007 的 Phase 1 DTO 最小类型。
+- `docs/api/phase1-contracts.md` 存在，引用 ADR-0007，不另起一套契约。
+- `docs/business/acceptance.md` 存在，说明 P0/P1 与完整 Phase 1 的业务验收差异。
+- `AGENTS.md` §4 验证门不再是占位。
+- 没有真实 Binance key、真实账户数据、真实网络请求、自动下单能力。
+
+## 3. 推荐分支与提交拆分
+
+推荐分支：`infra/p0-application-skeleton`
+
+推荐提交拆分：
+
+1. `docs: add phase1 p0 construction checklist`
+2. `infra: scaffold phase1 application baseline`
+3. `infra: add postgres prisma and worker baseline`
+4. `docs: publish phase1 contracts and acceptance baseline`
+5. `chore: wire project verification gate`
+
+如当前工作区已有大量文档脏改，先不要把 P0 代码混进文档基线。由人决定是否先提交文档基线，或在新分支上继续。
+
+## 4. 文件清单
+
+### 4.1 新增或修改的工程文件
+
+- Create: `package.json`
+- Create: `package-lock.json`
+- Create: `tsconfig.json`
+- Create: `next-env.d.ts`
+- Create: `next.config.ts`
+- Create: `eslint.config.mjs`
+- Create: `vitest.config.ts`
+- Create: `playwright.config.ts`
+- Create: `src/app/layout.tsx`
+- Create: `src/app/page.tsx`
+- Create: `src/app/globals.css`
+- Create: `src/app/api/health/route.ts`
+- Create: `src/server/config/env.ts`
+- Create: `src/server/db/prisma.ts`
+- Create: `src/server/health.ts`
+- Create: `src/server/worker/index.ts`
+- Create: `src/server/jobs/types.ts`
+- Create: `src/contracts/phase1.ts`
+- Create: `src/signal/facts/index.ts`
+- Modify: `src/ledger/.gitkeep` replacement or keep with `index.ts`
+- Modify: `src/signal/.gitkeep` replacement or keep with `index.ts`
+- Modify: `src/strategy/.gitkeep` replacement or keep with `index.ts`
+- Create: `tests/server/health.test.ts`
+- Create: `tests/contracts/phase1-contracts.test.ts`
+- Create: `tests/worker/worker-smoke.test.ts`
+- Create: `tests/fixtures/phase1/README.md`
+
+### 4.2 新增或修改的数据与运行文件
+
+- Create: `prisma/schema.prisma`
+- Create: `infra/local/compose.yaml`
+- Create: `.env.example`
+- Modify: `.gitignore` only if generated artifacts are not ignored.
+
+### 4.3 新增或修改的文档文件
+
+- Create: `docs/api/phase1-contracts.md`
+- Create: `docs/business/acceptance.md`
+- Modify: `AGENTS.md`
+
+## 5. 施工任务
+
+### Task 0: 工作区与文档基线确认
+
+**Owner:** human / integrator
+
+**Files:** no required file changes
+
+- [ ] Run: `git status --short --branch`
+- [ ] Confirm whether current PRD / ADR / execution-plan changes should be committed before code scaffolding.
+- [ ] Confirm the active branch is not `main`.
+- [ ] If creating a new branch, use: `infra/p0-application-skeleton`
+- [ ] Stop if another agent is editing the same engineering baseline files.
+
+**Acceptance:**
+
+- P0 implementation starts from a known branch and known dirty-worktree state.
+- No user-authored doc changes are overwritten.
+
+### Task 1: npm / TypeScript / Next.js baseline
+
+**Owner:** infra
+
+**Files:**
+
+- Create: `package.json`
+- Create: `tsconfig.json`
+- Create: `next-env.d.ts`
+- Create: `next.config.ts`
+- Create: `eslint.config.mjs`
+- Create: `src/app/layout.tsx`
+- Create: `src/app/page.tsx`
+- Create: `src/app/globals.css`
+
+- [ ] Add package scripts:
+  - `dev`: `next dev --port 3300`
+  - `build`: `next build`
+  - `start`: `next start --port 3300`
+  - `lint`: `eslint .`
+  - `typecheck`: `tsc --noEmit`
+  - `verify`: `npm run lint && npm run typecheck && npm run prisma:validate && npm run db:status && npm run test && npm run db:smoke && npm run worker:smoke`
+- [ ] Add dependencies:
+  - runtime: `next`, `react`, `react-dom`, `@prisma/client`, `zod`
+  - dev: `typescript`, `eslint`, `eslint-config-next`, `vitest`, `tsx`, `prisma`, `playwright`, `@playwright/test`, `@types/node`, `@types/react`, `@types/react-dom`
+- [ ] Implement a minimal app shell that renders a plain P0 status page.
+- [ ] Keep UI minimal. Do not start P1 market page or ledger page here.
+
+**Acceptance:**
+
+- `npm run lint` exits 0.
+- `npm run typecheck` exits 0.
+- `npm run build` exits 0 or has a documented blocker caused by missing local dependencies before install.
+
+### Task 2: Postgres / Prisma baseline
+
+**Owner:** infra
+
+**Files:**
+
+- Create: `infra/local/compose.yaml`
+- Create: `prisma/schema.prisma`
+- Create: `prisma/migrations/<timestamp>_p0_baseline/migration.sql`
+- Create: `src/server/db/prisma.ts`
+- Create: `src/server/db/smoke.ts`
+- Create: `.env.example`
+
+- [ ] Add Docker Compose service `postgres` with project name `digital-asset` and database name `digital_asset_dev`.
+- [ ] Add `.env.example` with `DATABASE_URL` and no secret values.
+- [ ] Add Prisma datasource `postgresql`.
+- [ ] Add generator `client`.
+- [ ] Add first minimal models:
+  - `JobRun`
+  - `SyncCursor`
+  - `DecisionSnapshot`
+- [ ] Use `Decimal` / `numeric` later for money fields; P0 schema should already avoid float for financial values.
+- [ ] Add package scripts:
+  - `db:up`: `docker compose -f infra/local/compose.yaml up -d postgres`
+  - `db:down`: `docker compose -f infra/local/compose.yaml down`
+  - `prisma:generate`: `prisma generate`
+  - `prisma:validate`: `prisma validate`
+  - `db:migrate`: `prisma migrate dev`
+  - `db:deploy`: `prisma migrate deploy`
+  - `db:status`: `prisma migrate status`
+  - `db:smoke`: `node --import tsx src/server/db/smoke.ts`
+- [ ] Create and commit the initial `p0_baseline` migration.
+- [ ] Add a DB smoke check that connects to Postgres and verifies the P0 baseline tables exist.
+
+**Acceptance:**
+
+- `npm run prisma:validate` exits 0.
+- `npm run db:up` starts local Postgres.
+- `npm run db:status` reports database schema is up to date.
+- `npm run db:smoke` exits 0.
+- `DATABASE_URL` is documented in `.env.example` only, not committed with a real value.
+
+### Task 3: env / health / local runtime baseline
+
+**Owner:** infra
+
+**Files:**
+
+- Create: `src/server/config/env.ts`
+- Create: `src/server/config/local-env-loader.ts`
+- Create: `src/server/health.ts`
+- Create: `src/app/api/health/route.ts`
+- Test: `tests/server/health.test.ts`
+- Test: `tests/server/local-env-loader.test.ts`
+
+- [ ] Implement env parsing with `zod`.
+- [ ] Load local `.env` before standalone Node CLI / worker / Prisma code validates `DATABASE_URL`.
+- [ ] Validate `DATABASE_URL` in server runtime.
+- [ ] Implement `getHealthStatus()` returning:
+  - `status`
+  - `service`
+  - `timestamp`
+  - `phase`
+- [ ] Implement `GET /api/health` that returns `getHealthStatus()`.
+- [ ] Add a Vitest unit test for `getHealthStatus()`.
+
+**Acceptance:**
+
+- `npm run test -- tests/server/health.test.ts` exits 0.
+- `/api/health` can be used later by smoke tests and deployment checks.
+
+### Task 4: shared contracts baseline
+
+**Owner:** contracts
+
+**Files:**
+
+- Create: `src/contracts/phase1.ts`
+- Create: `tests/contracts/phase1-contracts.test.ts`
+- Create: `docs/api/phase1-contracts.md`
+
+- [ ] Define stable TypeScript types matching ADR-0007:
+  - `DecimalString`
+  - `IsoDateTimeString`
+  - `SignalLifecycleState`
+  - `BindingState`
+  - `StrategyVersionStatus`
+  - `PlannedActionStatus`
+  - `ActiveSignalSet`
+  - `SignalSnapshotRef`
+  - `LedgerPositionView`
+  - `LedgerTradeView`
+  - `CapitalFlowView`
+  - `AccountBindingStatus`
+  - `StrategyBindingRef`
+  - `StrategyVersionRef`
+  - `AssetPoolItem`
+  - `SyncSymbolSet`
+  - `PlannedAction`
+  - `ReviewDraft`
+- [ ] Add one fixture-like test that constructs a valid `ActiveSignalSet`, `LedgerPositionView`, and `PlannedAction` and asserts the `snapshot_id` / `strategy_version` linkage.
+- [ ] Write `docs/api/phase1-contracts.md` as the human-readable companion to the TypeScript contract file.
+
+**Acceptance:**
+
+- `npm run test -- tests/contracts/phase1-contracts.test.ts` exits 0.
+- Strategy-facing contracts do not import from `src/signal/facts/` or Binance clients.
+
+### Task 5: layer directory and import-boundary skeleton
+
+**Owner:** infra + layer owners
+
+**Files:**
+
+- Create: `src/ledger/index.ts`
+- Create: `src/signal/index.ts`
+- Create: `src/signal/facts/index.ts`
+- Create: `src/strategy/index.ts`
+
+- [ ] Replace empty `.gitkeep` directory markers with minimal `index.ts` exports.
+- [ ] `src/signal/facts/index.ts` should export only facts-module metadata, not real collectors.
+- [ ] `src/ledger/index.ts` should expose only P0 metadata and not import strategy rules.
+- [ ] `src/strategy/index.ts` should expose only P0 metadata and may import contract types only.
+
+**Acceptance:**
+
+- `npm run typecheck` exits 0.
+- Manual grep confirms no forbidden import:
+  - `src/strategy/` does not import `src/signal/facts/`
+  - `src/signal/` does not import `src/ledger/`
+
+### Task 6: worker / job baseline
+
+**Owner:** infra
+
+**Files:**
+
+- Create: `src/server/jobs/types.ts`
+- Create: `src/server/worker/index.ts`
+- Test: `tests/worker/worker-smoke.test.ts`
+
+- [ ] Define minimal job type names:
+  - `ledger_sync`
+  - `signal_fact_collect`
+  - `signal_snapshot_build`
+  - `strategy_review_draft`
+- [ ] Implement worker entry that can run in smoke mode and exit 0.
+- [ ] Add package scripts:
+  - `worker`: `node --import tsx src/server/worker/index.ts`
+  - `worker:smoke`: `node --import tsx src/server/worker/index.ts --once --smoke`
+- [ ] Add a test that executes the worker smoke path or directly calls the worker smoke function.
+
+**Acceptance:**
+
+- `npm run worker:smoke` exits 0.
+- `npm run test -- tests/worker/worker-smoke.test.ts` exits 0.
+- Worker does not call Binance or require API keys.
+
+### Task 7: fixture and acceptance docs baseline
+
+**Owner:** docs + infra
+
+**Files:**
+
+- Create: `tests/fixtures/phase1/README.md`
+- Create: `docs/business/acceptance.md`
+
+- [ ] Document that P0 creates fixture directories only; P1 owns actual walking-skeleton fixture data.
+- [ ] In `docs/business/acceptance.md`, distinguish:
+  - P0 engineering acceptance
+  - P1 walking-skeleton acceptance
+  - full Phase 1 acceptance
+- [ ] Include explicit out-of-scope items:
+  - real Binance sync
+  - external signal push
+  - automatic ordering
+  - non-Binance sources
+  - P1.5 public collector implementation
+
+**Acceptance:**
+
+- Docs reference ADR-0006 and ADR-0007.
+- No duplicate cross-layer contract is invented outside ADR-0007 / `src/contracts/phase1.ts`.
+
+### Task 8: AGENTS.md verification gate
+
+**Owner:** docs + infra
+
+**Files:**
+
+- Modify: `AGENTS.md`
+
+- [ ] Replace §4 占位命令 with real commands:
+  - `npm run db:up`
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run prisma:validate`
+  - `npm run db:status`
+  - `npm run test`
+  - `npm run db:smoke`
+  - `npm run worker:smoke`
+  - `npm run verify`
+- [ ] State that e2e is required only once Playwright smoke tests are added:
+  - `npm run test:e2e`
+- [ ] State that real Binance tests are never part of default local/CI verification.
+
+**Acceptance:**
+
+- `AGENTS.md` no longer contains 占位文本 in verification gate.
+- Future agents can copy the commands without asking what “完成” means.
+
+### Task 9: final P0 verification
+
+**Owner:** integrator
+
+**Files:** no required file changes
+
+- [ ] Run: `npm run lint`
+- [ ] Run: `npm run typecheck`
+- [ ] Run: `npm run prisma:validate`
+- [ ] Run: `npm run db:status`
+- [ ] Run: `npm run test`
+- [ ] Run: `npm run db:smoke`
+- [ ] Run: `npm run worker:smoke`
+- [ ] Run: `git diff --check`
+- [ ] Run: `rg -n "TO""DO|TB""D|待""定|place""holder|fill"" in" package.json tsconfig.json next.config.ts eslint.config.mjs vitest.config.ts playwright.config.ts src prisma tests docs/api docs/business AGENTS.md`
+- [ ] Review `git diff` manually.
+
+**Acceptance:**
+
+- All commands exit 0, except network-dependent dependency installation if the environment blocks npm access. In that case, record the exact blocked command and rerun with approval.
+- P0 has not introduced real credentials or real exchange calls.
+- P0 is ready to hand off to P1.
+
+## 6. Stop Conditions
+
+Stop and ask the human integrator if any of these happen:
+
+- A required command would overwrite existing PRD / ADR / execution-plan files.
+- Current branch is `main`.
+- Another agent has modified files in the same owner area during P0 work.
+- Prisma schema change would contradict ADR-0007.
+- A dependency choice would contradict ADR-0006.
+- Any implementation requires real Binance credentials.
+- Any test would require real network access to pass.
+
+## 7. P0 Handoff to P1
+
+P0 handoff package should include:
+
+- Verification command outputs.
+- List of created scripts in `package.json`.
+- Link to `docs/api/phase1-contracts.md`.
+- Link to `docs/business/acceptance.md`.
+- Notes on any intentionally empty directories:
+  - `tests/fixtures/phase1/`
+  - `src/signal/facts/`
+- Known non-blocking gaps for P1:
+  - no real fixture timeline yet
+  - no market page / ledger page yet
+  - no strategy planned action generation yet
+  - no real Binance collector yet
+
+Once P0 is accepted, P1 may start the actual walking-skeleton slice.
