@@ -1,6 +1,6 @@
 # Phase 1 Implementation Archive
 
-This directory contains historical Phase 1 implementation plans that were previously stored under the repository-level `执行计划/Phase1/` directory.
+This directory contains historical Phase 1 implementation plans that were previously stored outside `docs/`.
 
 These files are useful for understanding how the current Phase 1 engineering baseline was created. They are not the current authority for contracts:
 
