@@ -16,8 +16,10 @@ It must not require live Binance access, remote machine access, or real account 
 
 - All ledger fact mutations go through `appendLedgerFacts()`.
 - Live sync, local import, cassette seed, external trade entry, attribution, and reversal paths are tested against the same ingest boundary.
+- Mock ledger service output is deterministic, offline, and routed through the same import/ingest path.
 - Ledger source facts are append-only; correction uses reversal or follow-up facts rather than silent update/delete.
 - Every fact has source mode: `fixture`, `mock`, `cassette`, `remote_import`, or `live`.
+- Mock data is visibly marked as `mock`, never as `remote_import` or `live`.
 - Repeated import or sync of the same facts is idempotent.
 - Local imported data is visibly marked as `remote_import`, never as `live`.
 - Export packages include `schema_version`, `export_run_id`, `source_env_id`, `sync_run_id`, `exported_at`, `content_hash`, and redaction metadata.

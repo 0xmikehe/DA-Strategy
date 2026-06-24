@@ -21,7 +21,7 @@ This directory does not supersede PRDs or ADRs. It explains how accepted decisio
 - `00-roadmap.md` - P2 ledger phase breakdown and dependency order.
 - `00-acceptance.md` - overall P2 ledger acceptance gates.
 - `p2-0-ingest-kernel/design.md` - single ledger ingest service design.
-- `p2-1-local-import-cassette/design.md` - local package import and cassette regression design.
+- `p2-1-local-import-cassette/design.md` - mock ledger service, local package import, and cassette regression design.
 - `p2-2-remote-exporter/design.md` - remote ledger export package and redaction design.
 - `p2-3-binance-live-sync/design.md` - live Binance account sync design.
 - `p2-4-replay-reconciliation/README.md` - future replay/reconciliation phase home.
