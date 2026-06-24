@@ -19,9 +19,12 @@ It must not require live Binance access, remote machine access, or real account 
 - Mock ledger service output is deterministic, offline, and routed through the same import/ingest path.
 - Ledger source facts are append-only; correction uses reversal or follow-up facts rather than silent update/delete.
 - Every fact has source mode: `fixture`, `mock`, `cassette`, `remote_import`, or `live`.
+- Every fact has origin and trigger metadata, either from its own command or from the ingest batch default.
+- Manual official-runtime facts use `source_mode = "live"` with manual origin/trigger metadata; local copies imported from remote use `source_mode = "remote_import"` while preserving the original origin/trigger.
 - Mock data is visibly marked as `mock`, never as `remote_import` or `live`.
 - Repeated import or sync of the same facts is idempotent.
 - Local imported data is visibly marked as `remote_import`, never as `live`.
+- Sync cursor advancement is committed through `appendLedgerFacts()` with the successful fact batch, never as a separate direct write after fact inserts.
 - Export packages include `schema_version`, `export_run_id`, `source_env_id`, `sync_run_id`, `exported_at`, `content_hash`, and redaction metadata.
 - Exported packages do not contain API secrets, signed URLs, request headers, signatures, or full secret-bearing payloads.
 - Live Binance calls are opt-in commands and run only where read-only account keys are configured.

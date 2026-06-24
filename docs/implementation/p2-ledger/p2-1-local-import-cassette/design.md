@@ -83,6 +83,7 @@ Initial package sections shared by mock, remote import, and cassette paths:
 - Mock packages submit facts with `source_mode = "mock"`.
 - Remote packages submit facts with `source_mode = "remote_import"`.
 - Cassette packages submit facts with `source_mode = "cassette"`.
+- Imported facts preserve origin and trigger metadata. If one package contains mixed origins, the importer submits fact-level origin metadata rather than flattening everything to one origin.
 - Local read models and pages must display the actual source mode: `mock`, `remote_import`, or `cassette`.
 
 ## Cassette Rules
@@ -101,3 +102,4 @@ Cassettes are redacted, stable packages promoted into deterministic test fixture
 - Re-importing the same package produces no duplicate facts.
 - Malformed package hash fails before ingestion.
 - Local UI/read model source mode is `mock`, `remote_import`, or `cassette`, never `live`.
+- Mixed-origin packages preserve per-fact origin metadata after import.
