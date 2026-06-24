@@ -24,5 +24,3 @@ docs/implementation/<phase-or-area>/
 ```
 
 Use `design.md` for architecture and behavior, `plan.md` for task-by-task execution, and `verification.md` for evidence gathered during or after implementation.
-
-Agent-generated drafts under `docs/superpowers/` should be migrated here once the project adopts them.

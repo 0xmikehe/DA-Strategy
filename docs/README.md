@@ -1,6 +1,6 @@
 # Project Documentation Index
 
-This directory is the canonical home for project documentation. Root-level or agent-generated documents may exist as historical redirects, but durable explanatory content should live under `docs/`.
+This directory is the canonical home for project documentation. Durable explanatory content should live under the functional directories below.
 
 ## Document Classes
 
@@ -14,7 +14,6 @@ This directory is the canonical home for project documentation. Root-level or ag
 | `signals/` | Signal dossiers, signal cards, thresholds, lifecycle notes, and evidence summaries | Signal-level product/design reference |
 | `strategies/` | Concrete strategy dossiers, decision maps, rule versions, and strategy-specific notes | Strategy-level product/design reference |
 | `implementation/` | Roadmaps, designs, execution plans, and verification notes for implementation work | Canonical implementation planning home |
-| `superpowers/` | Historical agent-generated drafts or redirects only | Not a long-term authority |
 
 ## Reading Order
 
@@ -33,7 +32,7 @@ When moving existing explanatory documents:
 
 1. Create the new canonical document under `docs/`.
 2. Preserve or absorb the useful content there.
-3. Leave a short redirect stub at the old tracked path if existing plans or ADRs may still link to it.
-4. Run a reference scan with `rg` before deleting any stub.
+3. Update references to the new canonical location.
+4. Run a reference scan with `rg` before deleting the old path.
 
 ADRs are never merged or deleted during cleanup. Superseding a decision requires a new ADR.
