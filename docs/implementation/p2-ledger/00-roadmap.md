@@ -33,9 +33,9 @@ No collector, importer, page action, or worker may write ledger source facts dir
 | P2-1 | Mock, local import, and cassette | Generate deterministic mock ledger packages, import redacted remote packages locally, and promote stable packages into offline regression fixtures | `p2-1-local-import-cassette/design.md` |
 | P2-2 | Remote exporter | Export normalized, redacted ledger packages from the remote runtime | `p2-2-remote-exporter/design.md` |
 | P2-3 | Binance live sync | Call signed Binance USER_DATA endpoints remotely and submit normalized batches through the ingest kernel | `p2-3-binance-live-sync/design.md` |
-| P2-4 | Replay and reconciliation | Compare replayed balances with reported snapshots and classify differences | `p2-4-replay-reconciliation/README.md` |
-| P2-5 | Manual fallback writes | Route external trades, attribution, and reversals through the same ingest kernel | `p2-5-manual-fallback-writes/README.md` |
-| P2-6 | Ledger page | Show source mode, freshness, reconciliation, pending attribution, and safe write actions | `p2-6-ledger-page/README.md` |
+| P2-4 | Replay and reconciliation | Compare replayed balances with reported snapshots and classify differences | `p2-4-replay-reconciliation/design.md` |
+| P2-5 | Manual fallback writes | Route external trades, attribution, and reversals through the same ingest kernel | `p2-5-manual-fallback-writes/design.md` |
+| P2-6 | Ledger page | Show source mode, freshness, reconciliation, pending attribution, and safe write actions | `p2-6-ledger-page/design.md` |
 | P2-7 | Remote operations | Backup/restore, live smoke, deployment, logging, redaction, and alerts | `p2-7-remote-ops/README.md` |
 
 ## Dependency Order

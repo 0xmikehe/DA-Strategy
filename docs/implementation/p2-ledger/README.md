@@ -28,9 +28,12 @@ This directory does not supersede PRDs or ADRs. It explains how accepted decisio
 - `p2-2-remote-exporter/plan.md` - P2-2 implementation plan.
 - `p2-3-binance-live-sync/design.md` - live Binance account sync design.
 - `p2-3-binance-live-sync/plan.md` - P2-3 implementation plan.
-- `p2-4-replay-reconciliation/README.md` - future replay/reconciliation phase home.
-- `p2-5-manual-fallback-writes/README.md` - future manual fallback write phase home.
-- `p2-6-ledger-page/README.md` - future ledger page phase home.
+- `p2-4-replay-reconciliation/design.md` - replay and reconciliation design.
+- `p2-4-replay-reconciliation/plan.md` - P2-4 implementation plan.
+- `p2-5-manual-fallback-writes/design.md` - manual fallback write design.
+- `p2-5-manual-fallback-writes/plan.md` - P2-5 implementation plan.
+- `p2-6-ledger-page/design.md` - ledger page design.
+- `p2-6-ledger-page/plan.md` - P2-6 implementation plan.
 - `p2-7-remote-ops/README.md` - future remote operations phase home.
 
 Implementation plans should be added as `plan.md` inside each phase directory only after that phase design is approved.
