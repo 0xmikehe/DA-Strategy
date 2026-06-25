@@ -30,6 +30,11 @@ It must not require live Binance access, remote machine access, or real account 
 - Live Binance calls are opt-in commands and run only where read-only account keys are configured.
 - Reconciliation can compare replayed balances with reported balance snapshots and produce durable result records.
 - Ledger page states make freshness, data source, reconciliation result, and pending attribution visible.
+- Remote ops commands validate configuration without printing secret values.
+- Remote backup includes source facts, snapshots, manual/operator facts, sync cursors, metadata, and checksums; it excludes plaintext secrets.
+- Restore smoke uses a scratch database and refuses production DB targets.
+- Logs, alerts, exports, backup metadata, and operator summaries are redacted before publication.
+- Alert payloads use safe reason codes and do not include account-sensitive balances or secret-bearing material.
 
 ## Explicit Live Gates
 
@@ -37,6 +42,7 @@ These commands may require remote secrets and network access, so they are not pa
 
 ```text
 npm run ledger:live-smoke
+npm run ledger:backup
 npm run ledger:export
 npm run ledger:restore-smoke
 ```

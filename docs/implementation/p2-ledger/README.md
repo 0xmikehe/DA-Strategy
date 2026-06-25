@@ -34,6 +34,7 @@ This directory does not supersede PRDs or ADRs. It explains how accepted decisio
 - `p2-5-manual-fallback-writes/plan.md` - P2-5 implementation plan.
 - `p2-6-ledger-page/design.md` - ledger page design.
 - `p2-6-ledger-page/plan.md` - P2-6 implementation plan.
-- `p2-7-remote-ops/README.md` - future remote operations phase home.
+- `p2-7-remote-ops/design.md` - remote operations design.
+- `p2-7-remote-ops/plan.md` - P2-7 implementation plan.
 
 Implementation plans should be added as `plan.md` inside each phase directory only after that phase design is approved.

@@ -36,7 +36,7 @@ No collector, importer, page action, or worker may write ledger source facts dir
 | P2-4 | Replay and reconciliation | Compare replayed balances with reported snapshots and classify differences | `p2-4-replay-reconciliation/design.md` |
 | P2-5 | Manual fallback writes | Route external trades, attribution, and reversals through the same ingest kernel | `p2-5-manual-fallback-writes/design.md` |
 | P2-6 | Ledger page | Show source mode, freshness, reconciliation, pending attribution, and safe write actions | `p2-6-ledger-page/design.md` |
-| P2-7 | Remote operations | Backup/restore, live smoke, deployment, logging, redaction, and alerts | `p2-7-remote-ops/README.md` |
+| P2-7 | Remote operations | Backup/restore, live smoke, deployment, logging, redaction, and alerts | `p2-7-remote-ops/design.md` |
 
 ## Dependency Order
 
