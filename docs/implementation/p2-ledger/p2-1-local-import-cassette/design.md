@@ -2,61 +2,48 @@
 
 ## Goal
 
-Allow local development to create and use ledger facts without local real account secrets or live Binance access.
+Allow local development to create, import, and replay ledger facts without local real account secrets, live Binance access, or a remote machine dependency.
 
 P2-1 has three offline data paths:
 
-1. A mock ledger service creates deterministic project-owned ledger packages for development and UI/replay testing.
+1. A mock ledger service creates deterministic project-owned ledger packages for development, replay, reconciliation, and UI testing.
 2. Local import consumes redacted remote `ledger_export_package` files and submits facts with `source_mode = "remote_import"`.
-3. Cassette fixtures preserve selected redacted packages for stable regression tests.
+3. Cassette fixtures preserve selected redacted packages as stable regression inputs.
 
-All three paths submit facts through `appendLedgerFacts()`.
+All three paths normalize package content into `LedgerIngestCommand` and submit facts through `appendLedgerFacts()`.
 
-## Mock Ledger Service
+## Prerequisites
 
-The mock ledger service is a project-owned data generator. It is not a Binance API compatibility server and must not expose `/api/binance/*` pass-through behavior.
+P2-1 depends on P2-0:
 
-Responsibilities:
+- `appendLedgerFacts()` exists and owns source fact writes.
+- Ingest command types, source modes, origin/trigger metadata, package metadata, idempotency, and conflict semantics are implemented.
+- P2-0 tests already prove mock, cassette, remote import, fixture, live, manual, attribution, and reversal paths can call the same ingest boundary.
 
-- Generate deterministic ledger package data from named scenarios.
-- Produce the same package envelope shape as remote export where practical.
-- Support fixed timestamps and stable IDs so repeated runs are reproducible.
-- Serve packages from a local command or local-only endpoint.
-- Label generated facts with `source_mode = "mock"` when they are ingested.
-- Include enough data to exercise replay, reconciliation, pending attribution, external trade entry, and ledger page states.
+P2-1 must not create a second write path.
 
-Initial scenario set:
+## Components
 
-- Empty account with healthy binding status.
-- One deposit, one buy fill, fee in BNB, and matching balance snapshot.
-- Buy then partial sell with realized lot movement.
-- Transfer from master to strategy subaccount.
-- Missing-event mismatch where reported balance is greater than computed balance.
-- External wallet trade that enters pending attribution.
-- Duplicate package/import attempt for idempotency testing.
+### Ledger Package Contract
 
-Non-responsibilities:
+`ledger_export_package` is the shared envelope for mock packages, remote exports, and cassettes. It is a project-owned domain package, not a Binance API clone.
 
-- It does not call Binance.
-- It does not sign requests.
-- It does not generate secrets.
-- It does not write ledger source tables directly.
-- It does not pretend mock data is `remote_import` or `live`.
-
-## Package Shape
-
-Initial package sections shared by mock, remote import, and cassette paths:
+Initial sections:
 
 ```json
 {
   "manifest": {
     "schema_version": "ledger.export.v1",
+    "package_id": "pkg_...",
+    "package_kind": "mock",
     "export_run_id": "lexp_...",
-    "source_env_id": "remote-prod-1",
+    "source_env_id": "mock-local",
     "sync_run_id": "job_...",
-    "exported_at": "2026-06-24T00:00:00.000Z",
+    "scenario_id": "deposit_buy_fee",
+    "cassette_id": "cassette_p2_1_deposit_buy_fee",
+    "produced_at": "2026-06-25T00:00:00.000Z",
     "content_hash": "sha256:...",
-    "redaction_level": "default"
+    "redaction_level": "none"
   },
   "exchange_accounts": [],
   "api_key_health_summaries": [],
@@ -64,6 +51,9 @@ Initial package sections shared by mock, remote import, and cassette paths:
   "exchange_trade_fills": [],
   "exchange_orders": [],
   "capital_flow_events": [],
+  "external_trades": [],
+  "attribution_records": [],
+  "reversals": [],
   "account_balance_snapshots": [],
   "reconciliation_results": [],
   "sync_cursor_summaries": [],
@@ -71,35 +61,162 @@ Initial package sections shared by mock, remote import, and cassette paths:
 }
 ```
 
-## Import Rules
+`manifest.package_kind` is one of:
 
-- `manifest.schema_version` is required.
-- `content_hash` must validate before any ingest command is submitted.
-- Unknown required fields fail import.
-- Unknown optional fields are accepted only when marked extension-safe by the schema.
-- Decimal values are strings.
-- Timestamps are ISO strings with offset.
-- Repeat import of the same package is idempotent.
-- Mock packages submit facts with `source_mode = "mock"`.
-- Remote packages submit facts with `source_mode = "remote_import"`.
-- Cassette packages submit facts with `source_mode = "cassette"`.
-- Imported facts preserve origin and trigger metadata. If one package contains mixed origins, the importer submits fact-level origin metadata rather than flattening everything to one origin.
-- Local read models and pages must display the actual source mode: `mock`, `remote_import`, or `cassette`.
+- `mock`
+- `remote_export`
+- `cassette`
 
-## Cassette Rules
+Hash rule:
+
+- `content_hash` is computed from canonical package JSON with `manifest.content_hash` temporarily omitted or set to an empty string.
+- Any import command must verify the hash before calling `appendLedgerFacts()`.
+- A hash mismatch fails before ingestion.
+
+### Mock Ledger Service
+
+The mock ledger service is a deterministic package generator.
+
+Responsibilities:
+
+- Generate package files from named scenarios.
+- Use fixed timestamps, package IDs, account IDs, event IDs, and fact idempotency keys.
+- Produce the same package envelope shape as remote export where practical.
+- Label generated facts with `source_mode = "mock"` at ingest time.
+- Preserve fact origin as `{ kind: "mock_scenario", scenario_id }`.
+- Include data needed to exercise replay, reconciliation, pending attribution, external trade entry, duplicate import behavior, and ledger page state labels.
+
+Non-responsibilities:
+
+- It does not call Binance.
+- It does not sign requests.
+- It does not generate secrets.
+- It does not write ledger source tables directly.
+- It does not expose `/api/binance/*`.
+- It does not pretend mock data is `remote_import` or `live`.
+
+Initial scenario set:
+
+| Scenario | Purpose |
+| --- | --- |
+| `empty_healthy_account` | Empty account and healthy binding/key summaries. |
+| `deposit_buy_fee` | Deposit, buy fill, BNB fee, and matching balance snapshot. |
+| `partial_sell_lot` | Buy then partial sell to feed future lot/replay behavior. |
+| `master_to_sub_transfer` | Master to strategy subaccount funding flow. |
+| `missing_event_mismatch` | Reported balance greater than computed balance for reconciliation testing. |
+| `external_wallet_pending_attribution` | External trade that enters pending attribution. |
+| `duplicate_import` | Same package/facts imported repeatedly for idempotency testing. |
+| `mixed_origin_package` | Package containing both generated exchange-like facts and manual attribution/reversal-like facts to prove fact-level origin preservation. |
+
+### Local Importer
+
+The local importer validates a package file and maps each section into P2-0 ingest commands.
+
+Responsibilities:
+
+- Parse package JSON from disk.
+- Validate `manifest.schema_version`, `package_kind`, timestamp shape, decimal strings, and required sections.
+- Verify `manifest.content_hash` before ingestion.
+- Reject unknown required fields.
+- Accept unknown optional fields only if the schema marks them extension-safe.
+- Convert package facts into `LedgerIngestCommand`.
+- Set `source_mode = "remote_import"` for remote packages.
+- Set `source_mode = "mock"` for mock packages.
+- Set `source_mode = "cassette"` for cassette packages.
+- Preserve fact-level origin/trigger metadata when package sections contain mixed origins.
+- Return a safe import summary without secrets or raw signed payloads.
+
+The importer must not mutate the package, rewrite IDs, or repair malformed package content silently.
+
+### Cassette Fixtures
 
 Cassettes are redacted, stable packages promoted into deterministic test fixtures.
 
-- They must not include real secrets.
-- They must be safe for git if committed.
-- They retain enough realistic shape to test parser, importer, idempotency, replay, and page source labels.
+Rules:
 
-## Initial Verification
+- Cassettes are safe to commit.
+- Cassettes must not include API keys, API secrets, signatures, signed URLs, request headers, or full secret-bearing payloads.
+- Cassettes retain enough realistic shape to test package parsing, hash verification, import idempotency, origin preservation, replay, reconciliation, and UI source labels.
+- A cassette is immutable after promotion. Updates create a new cassette ID.
 
-- Mock ledger service creates deterministic packages for the initial scenario set.
-- Mock packages import successfully through `appendLedgerFacts()` with `source_mode = "mock"`.
-- Valid package imports successfully through `appendLedgerFacts()`.
+## Data Flow
+
+Mock package:
+
+```text
+scenario id
+  -> mock ledger package generator
+  -> ledger_export_package JSON
+  -> package validator/hash checker
+  -> package-to-ingest mapper
+  -> appendLedgerFacts(source_mode = "mock")
+```
+
+Remote package:
+
+```text
+remote ledger_export_package file
+  -> local importer
+  -> hash/redaction/schema validation
+  -> package-to-ingest mapper
+  -> appendLedgerFacts(source_mode = "remote_import")
+```
+
+Cassette:
+
+```text
+redacted package selected for regression
+  -> cassette fixture file
+  -> package validator/hash checker
+  -> package-to-ingest mapper
+  -> appendLedgerFacts(source_mode = "cassette")
+```
+
+## Import Mapping Rules
+
+- Package `exchange_trade_fills` become `LedgerFactCommand.kind = "exchange_trade_fill"`.
+- Package `exchange_orders` become `LedgerFactCommand.kind = "exchange_order"`.
+- Package `capital_flow_events` become `LedgerFactCommand.kind = "capital_flow_event"`.
+- Package `external_trades` become `LedgerFactCommand.kind = "external_trade"`.
+- Package `attribution_records` become `LedgerFactCommand.kind = "attribution_record"`.
+- Package `reversals` become `LedgerFactCommand.kind = "reversal"`.
+- Package `account_balance_snapshots` become `LedgerFactCommand.kind = "account_balance_snapshot"`.
+- Package `sync_cursor_summaries` may become `cursor_advancements` only when the package source is trusted and the import mode explicitly allows cursor restore.
+- Decimal values remain strings.
+- Timestamps remain UTC ISO strings with offset.
+- Raw payload sections are optional and must already be redacted.
+
+## Failure Semantics
+
+- Invalid JSON fails before ingestion.
+- Unsupported `schema_version` fails before ingestion.
+- Hash mismatch fails before ingestion.
+- Secret-like fields fail before ingestion.
+- Missing required package sections fail before ingestion.
+- Duplicate package import is idempotent through P2-0 batch/fact keys.
+- Same idempotency key with changed content fails as conflict.
+- Partial package import must not commit. The importer submits one package-level batch unless a later design explicitly adds chunked import with resumable batch metadata.
+
+## CLI Shape
+
+Initial local commands:
+
+```text
+npm run ledger:mock-package -- --scenario deposit_buy_fee --out tmp/ledger/mock/deposit_buy_fee.json
+npm run ledger:import-package -- --file tmp/ledger/mock/deposit_buy_fee.json
+npm run ledger:cassette:promote -- --file tmp/ledger/remote/latest.json --cassette-id cassette_p2_1_latest
+```
+
+These command names may be refined during implementation, but they must remain local/offline and must not call live Binance.
+
+## Verification
+
+- Mock package generation is deterministic for each scenario.
+- Mock packages import through `appendLedgerFacts()` with `source_mode = "mock"`.
+- Remote package fixture imports through `appendLedgerFacts()` with `source_mode = "remote_import"`.
+- Cassette imports through `appendLedgerFacts()` with `source_mode = "cassette"`.
 - Re-importing the same package produces no duplicate facts.
 - Malformed package hash fails before ingestion.
-- Local UI/read model source mode is `mock`, `remote_import`, or `cassette`, never `live`.
-- Mixed-origin packages preserve per-fact origin metadata after import.
+- Secret-like package fields fail before ingestion.
+- Mixed-origin packages preserve per-fact origin metadata.
+- Local read models and pages can distinguish `mock`, `remote_import`, and `cassette`, never `live`.
