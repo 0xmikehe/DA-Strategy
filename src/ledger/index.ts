@@ -4,3 +4,5 @@ export const ledgerModule = {
   phase: "phase1-p0",
   responsibility: "account facts, append-only events, reconciliation, and snapshot containers"
 } as const;
+
+export * from "./ingest";

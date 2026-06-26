@@ -17,5 +17,14 @@ describe("database smoke", () => {
     expect(result.tables.job_run).toEqual(expect.any(Number));
     expect(result.tables.sync_cursor).toEqual(expect.any(Number));
     expect(result.tables.decision_snapshot).toEqual(expect.any(Number));
+    expect(result.tables.ledger_ingest_batch).toEqual(expect.any(Number));
+    expect(result.tables.ledger_fact_observation).toEqual(expect.any(Number));
+    expect(result.tables.exchange_trade_fill).toEqual(expect.any(Number));
+    expect(result.tables.exchange_order).toEqual(expect.any(Number));
+    expect(result.tables.capital_flow_event).toEqual(expect.any(Number));
+    expect(result.tables.external_trade).toEqual(expect.any(Number));
+    expect(result.tables.attribution_record).toEqual(expect.any(Number));
+    expect(result.tables.ledger_reversal).toEqual(expect.any(Number));
+    expect(result.tables.account_balance_snapshot).toEqual(expect.any(Number));
   });
 });
