@@ -31,11 +31,13 @@ source facts
 
 The replay output may be returned directly to callers. P2-4 should not introduce persistent balance, position, or lot source tables. Any later cache or materialized projection must be explicitly justified as a performance optimization and must be rebuildable from source facts.
 
+`account_balance_snapshot` is an account source fact because it is reported evidence from the exchange, but it is not a replay accounting event. It is loaded as the reconciliation target after replay has produced computed balances. Replaying a reported snapshot into computed balance is forbidden because it would make reconciliation circular.
+
 ## Components
 
 ### Event Reader
 
-The event reader loads account facts for a bounded replay:
+The event reader loads account facts for a bounded replay and the reported snapshots needed for reconciliation:
 
 - `exchange_trade_fill`
 - `capital_flow_event`
@@ -47,6 +49,7 @@ The event reader loads account facts for a bounded replay:
 Reader rules:
 
 - Read source facts only.
+- Map `account_balance_snapshot` to reported snapshot inputs, not canonical replay events.
 - Sort by `occurred_at`, then deterministic tiebreakers such as source kind, exchange ID, local ID, and idempotency key.
 - Preserve decimal strings until arithmetic helpers consume them.
 - Resolve reversal facts without mutating the target row.
@@ -140,6 +143,7 @@ Minimum fields:
 - `diagnostics`
 
 Result writes are owned by the reconciliation service. They must not write or update ledger source fact tables, and they must not advance sync cursors.
+`reconciliation_result` is derived audit state. It is append-only for reviewability, but it is not account truth and does not go through `appendLedgerFacts()` unless a later ADR explicitly changes the ingest contract.
 
 ### Trigger Points
 

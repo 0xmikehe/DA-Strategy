@@ -285,6 +285,9 @@ Test:
 
 - external trade without effective attribution appears in pending queue.
 - attributed fact disappears from pending queue.
+- fact marked `unassigned_terminal` disappears from pending queue.
+- fact marked `external_assigned` disappears from pending queue.
+- reversed fact disappears from pending queue.
 - latest attribution wins.
 - query is read-only.
 - result includes source mode, origin, account, asset, quantity, occurred time, and suggested reason where available.
@@ -299,7 +302,17 @@ Expected: FAIL until query exists.
 
 - [ ] **Step 2: Implement read query**
 
-Start as computed query over source facts and attribution records. Do not add a materialized pending queue unless implementation proves it is necessary.
+Start as computed query over source facts, attribution records, and reversal facts. Do not add a materialized pending queue unless implementation proves it is necessary.
+
+State rules:
+
+- no effective attribution -> `pending`.
+- latest valid `assignment_kind = "strategy"` -> `strategy_assigned`.
+- latest valid `assignment_kind = "external"` -> `external_assigned`.
+- latest valid `assignment_kind = "unassigned"` -> `unassigned_terminal`.
+- valid reversal targeting the fact -> `reversed`.
+
+Return only `pending` items.
 
 - [ ] **Step 3: Run tests**
 

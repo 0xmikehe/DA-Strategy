@@ -263,7 +263,8 @@ Expected: both commands exit 0.
 
 Test:
 
-- backup plan includes source facts, snapshots, attribution, external trades, reversals, account binding audit, sync cursors, export metadata, and reconciliation results.
+- backup plan includes source facts, snapshots, attribution, external trades, reversals, account binding audit, sync cursors, and export metadata.
+- reconciliation results are optional audit convenience rows; restore correctness must not depend on them because P2-4 can rebuild them from source facts and snapshots.
 - backup metadata includes backup ID, created time, source env ID, migration version, checksum, table counts, and secret scan result.
 - backup output path is inside the configured backup directory.
 - backup failure does not delete older backups.

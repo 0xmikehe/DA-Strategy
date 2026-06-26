@@ -80,7 +80,6 @@ Use Zod to validate the full package envelope. Require all top-level arrays, eve
 
 - `exchange_accounts`
 - `api_key_health_summaries`
-- `ledger_events`
 - `exchange_trade_fills`
 - `exchange_orders`
 - `capital_flow_events`
@@ -93,6 +92,14 @@ Use Zod to validate the full package envelope. Require all top-level arrays, eve
 - `raw_payload_redacted`
 
 Reject keys matching secret-like names: `apiKey`, `apiSecret`, `signature`, `signedUrl`, `headers`, `secret`, `listenKey`.
+
+Validate section class semantics:
+
+- source fact sections are eligible for `appendLedgerFacts()`.
+- `exchange_accounts` and `api_key_health_summaries` are read-only summaries and must not create credentials or key material.
+- `reconciliation_results` are derived results; before P2-4 import support exists, validation keeps them safe but importer returns an explicit `ignored_until_phase: "P2-4"` warning.
+- `sync_cursor_summaries` must not advance cursors unless trusted restore mode is explicitly requested.
+- `raw_payload_redacted` must remain redacted evidence and must not map to source facts.
 
 - [ ] **Step 4: Implement hash calculation**
 
@@ -216,6 +223,17 @@ Map sections:
 
 Set batch package metadata from `manifest`.
 
+Do not map these sections to `appendLedgerFacts()`:
+
+- `exchange_accounts`
+- `api_key_health_summaries`
+- `reconciliation_results`
+- `raw_payload_redacted`
+
+Handle them according to the section semantics in Task 1. `sync_cursor_summaries` become `cursor_advancements` only when the import call is in explicit trusted restore mode.
+
+Map manifest fields to P2-0 metadata exactly as defined in the design. In particular, `manifest.produced_at` becomes `package_metadata.produced_at` and `import_metadata.exported_at`; do not invent a second timestamp field during import.
+
 - [ ] **Step 3: Implement importer**
 
 `importLedgerPackage(packageOrPath)`:
@@ -228,6 +246,7 @@ Set batch package metadata from `manifest`.
 6. returns safe import summary.
 
 The importer must not write Prisma source fact tables directly.
+The import summary must list ignored non-source sections and the reason, rather than silently dropping them.
 
 - [ ] **Step 4: Run tests**
 

@@ -24,14 +24,17 @@ It owns writes for:
 - ingest batch/import batch metadata
 - sync cursor advancement when a sync batch is committed
 
-It may later accept other append-only ledger audit facts if the P2 implementation plan explicitly adds them.
+It may later accept other account source facts if the P2 implementation plan explicitly adds them.
 
 It does not own unrelated control-plane lifecycle writes such as creating queued jobs, registering credentials, editing exchange account labels, or updating UI preferences. Those services must not write ledger source facts. When they need to append ledger facts or advance a ledger cursor, they call `appendLedgerFacts()`.
+
+It also does not own derived audit/result rows by default. For example, `reconciliation_result` is append-only audit state written by the reconciliation service, not an account source fact written by the ingest kernel, unless a later ADR explicitly changes the ingest command contract.
 
 This distinction avoids two bad outcomes:
 
 - A second fact writer hidden in a controller, importer, or worker.
 - A false rule that every non-fact operational update in the system must pass through the ledger ingest kernel.
+- A false rule that derived read/reconciliation state is account truth.
 
 ## Responsibilities
 
@@ -202,6 +205,7 @@ Rules:
 - `facts` may be empty only for a sync batch that advances a cursor after an empty source window, or for an explicit health/no-op batch defined in the implementation plan. The default is at least one fact.
 - `requested_at` is an ISO 8601 UTC string.
 - Amounts, prices, quantities, and fees are decimal strings. No command accepts JS `number` for financial values.
+- The common typed replay/query dimensions listed below are explicit contract fields. Raw `payload` remains evidence, not the only replay/page contract.
 - `source_mode = "remote_import"` requires `package_metadata` and `import_metadata`.
 - `source_mode = "mock"` requires `default_origin.kind = "mock_scenario"` or every fact to provide `origin.kind = "mock_scenario"`; it also requires `package_metadata` from the local generated package.
 - `source_mode = "cassette"` requires `default_origin.kind = "cassette"` or every fact to provide `origin.kind = "cassette"`; it also requires immutable cassette identity and `package_metadata`.
@@ -275,6 +279,20 @@ type LedgerFactCommandBase = {
   occurred_at: string;
   source_event_time?: string;
   payload_hash?: string;
+  dimensions?: LedgerFactDimensions;
+};
+
+type LedgerFactDimensions = {
+  exchange_account_id?: string;
+  asset?: string;
+  base_asset?: string;
+  quote_asset?: string;
+  symbol?: string;
+  external_id?: string;
+  strategy_id?: string;
+  strategy_version?: string;
+  snapshot_id?: string;
+  snapshot_time?: string;
 };
 
 type LedgerFactKind =
@@ -295,9 +313,13 @@ The initial fact-specific payloads map to the ledger PRD taxonomy:
 - `external_trade`: one manual system-external trade; natural key is generated from wallet, side, assets, quantities, `occurred_at`, and optional `tx_id`, then stored as the command idempotency key.
 - `attribution_record`: explicit append-only assignment from a source fact to `strategy_id + strategy_version`, or to unallocated/external classification.
 - `reversal`: append-only correction pointing to a target fact idempotency key and reason.
-- `account_balance_snapshot`: reported balance at a point in time; natural key `exchange_account_id + asset + snapshot_time + source_mode/origin identity`.
+- `account_balance_snapshot`: reported balance at a point in time; natural key `exchange_account_id + asset + snapshot_time + reported_scope`.
 
 P2-0 does not need to implement full replay math, but the command shape must preserve enough fields for P2-4 replay and reconciliation.
+
+The target database `source_mode` must not be part of source-fact natural keys. It labels the ingest lane into the current database. If the same real snapshot is first imported through `remote_import` and later observed through `live` in the same database, it must deduplicate or conflict by the real-world natural key plus canonical payload hash rather than becoming two account truths.
+
+`snapshot_id` and `snapshot_time` are different fields. `snapshot_id` points to the decision snapshot container used by review and strategy replay. `snapshot_time` is only the reported balance snapshot timestamp used by `account_balance_snapshot` natural keys.
 
 ## Idempotency and Conflict Rules
 
@@ -314,6 +336,7 @@ Fact behavior:
 - Repeating the same fact idempotency key with the same canonical payload hash is a no-op for the fact row and increments/records the duplicate observation in the batch summary.
 - Repeating the same fact idempotency key with a different canonical payload hash fails the whole batch with `FACT_CONFLICT`.
 - `source_mode` alone must not make the same real fact duplicate. A Binance fill imported through `remote_import` and later seen through `live` in the same database is the same fact if its natural key matches.
+- `origin` is audit context, not a substitute for a real-world natural key. Origin differences may create different observations of the same fact, but not duplicate source facts.
 - Correction never updates the old row. It appends a `reversal` fact and, if needed, appends a replacement fact with a new idempotency key.
 
 ## Transaction Boundary
@@ -415,6 +438,8 @@ The implementation plan should decide whether to expose public types from `src/l
 - Reject financial values supplied as JS numbers.
 - Re-importing the same batch is idempotent.
 - Re-ingesting the same natural fact through a different source mode does not duplicate the fact.
+- `account_balance_snapshot` deduplicates by real-world snapshot identity, not by target database `source_mode`.
+- Minimum typed dimensions are populated for replay/page filters when the source fact kind has those values.
 - Same idempotency key with changed payload fails as a conflict.
 - Cursor advancement does not commit when fact ingest fails.
 - Reversal appends a new fact and does not update the target fact.

@@ -102,11 +102,13 @@ Shows P2-5 pending attribution items:
 - suggested reason.
 - current effective attribution if any.
 
+Only attribution state `pending` appears in this queue. Items that are `strategy_assigned`, `external_assigned`, `unassigned_terminal`, or `reversed` belong in history/read-only filters, not in the pending queue.
+
 Actions:
 
 - assign to strategy/version.
 - mark external.
-- mark unassigned.
+- mark unassigned, which creates an `unassigned_terminal` attribution and removes the item from pending.
 - reverse target fact.
 - batch attribution.
 
@@ -135,6 +137,7 @@ Filters:
 - reconciliation status link.
 
 Rows show source mode and origin. Numeric values use signed symbols and tabular alignment; color is never the only signal.
+Trade/fill rows show `snapshot_id` when present and link to the frozen market snapshot view. Missing `snapshot_id` is shown as an explicit empty state, not replaced by `snapshot_time`.
 
 ### External Trade Entry
 

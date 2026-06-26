@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build explicit opt-in remote Binance live sync that normalizes account facts and submits them through `appendLedgerFacts()` with `source_mode = "live"`.
+**Goal:** Build explicit opt-in remote Binance live sync, including account binding/key-health baseline services and automatic physical-subaccount attribution, then submit normalized account facts through `appendLedgerFacts()` with `source_mode = "live"`.
 
-**Architecture:** P2-3 adds remote-only credential resolution, key health checks, signed Binance client wrappers, rate-limit/retry policy, endpoint workers, normalizers, and live sync orchestration. All successful facts and fact-related cursor advancements commit through P2-0 in one transaction.
+**Architecture:** P2-3 adds account/credential/binding models, remote-only credential resolution, key health checks, signed Binance client wrappers, rate-limit/retry policy, endpoint workers, attribution enrichment, normalizers, and live sync orchestration. Binding and credential lifecycle state is control-plane/account-configuration state; account source facts and fact-related cursor advancements commit through P2-0 in one transaction.
 
 **Tech Stack:** TypeScript, Prisma, Zod, Node CLI via `tsx`, Vitest with mocked Binance HTTP responses, explicit remote runtime environment variables.
 
@@ -25,6 +25,8 @@
 - Create `src/ledger/binance/types.ts`.
 - Create `src/ledger/binance/credentials.ts`.
 - Create `src/ledger/binance/key-health.ts`.
+- Create `src/ledger/binance/bindings.ts`.
+- Create `src/ledger/binance/attribution.ts`.
 - Create `src/ledger/binance/client.ts`.
 - Create `src/ledger/binance/rate-limit.ts`.
 - Create `src/ledger/binance/normalizers.ts`.
@@ -32,6 +34,8 @@
 - Create `src/ledger/binance/cli.ts`.
 - Modify `package.json`: add explicit live scripts.
 - Create `tests/ledger/binance/key-health.test.ts`.
+- Create `tests/ledger/binance/bindings.test.ts`.
+- Create `tests/ledger/binance/attribution.test.ts`.
 - Create `tests/ledger/binance/normalizers.test.ts`.
 - Create `tests/ledger/binance/sync-service.test.ts`.
 - Create `tests/ledger/binance/live-boundary.test.ts`.
@@ -75,6 +79,15 @@ Add models only if P2-0/P2-1/P2-2 have not already added them:
 
 Keep secret material out of DB. Store `keyRef`, not key values.
 
+Minimum ownership:
+
+- `ExchangeAccount`: exchange, account role, subaccount identifiers, safe label, active/frozen status, optional current bound strategy summary.
+- `ApiCredential`: exchange account, `keyRef`, safe permission summary, status, no key values.
+- `ApiKeyHealthCheck`: append-only health result, reason codes, checked time, safe endpoint/account scope.
+- `AccountBindingAudit`: append-only binding window and lifecycle event for strategy/account/key bind, unbind, key rotation, and block.
+
+These models are not account source facts and do not use `appendLedgerFacts()`.
+
 - [ ] **Step 3: Generate migration**
 
 Run:
@@ -107,7 +120,73 @@ npm run typecheck
 
 Expected: both commands exit 0.
 
-## Task 2: Binance Client and Rate Policy
+## Task 2: Binding Windows and Automatic Attribution
+
+**Files:**
+- Create: `src/ledger/binance/bindings.ts`
+- Create: `src/ledger/binance/attribution.ts`
+- Create: `tests/ledger/binance/bindings.test.ts`
+- Create: `tests/ledger/binance/attribution.test.ts`
+
+- [ ] **Step 1: Write failing binding and attribution tests**
+
+Test:
+
+- active binding lookup returns the strategy/account/key window effective at an event timestamp.
+- unbound or blocked account returns a safe unresolved result, not a guessed strategy.
+- exchange-internal trade fill dimensions include `exchange_account_id`, `symbol`, `base_asset`, `quote_asset`, `asset`, `strategy_id`, `strategy_version`, and `snapshot_id` when a snapshot resolver returns one.
+- missing snapshot resolver result leaves `snapshot_id` absent and records a diagnostic.
+- automatic attribution never reads or exposes API key values.
+
+Run:
+
+```bash
+npm run test -- tests/ledger/binance/bindings.test.ts tests/ledger/binance/attribution.test.ts
+```
+
+Expected: FAIL until binding and attribution services exist.
+
+- [ ] **Step 2: Implement binding lookup**
+
+`resolveActiveBinding({ exchangeAccountId, at })` reads binding/account/key state and returns:
+
+```ts
+type ActiveAccountBinding = {
+  exchange_account_id: string;
+  api_credential_id: string;
+  key_ref: string;
+  strategy_id?: string;
+  strategy_version?: string;
+  binding_state: "active" | "unbound" | "blocked";
+  blocking_reasons: string[];
+};
+```
+
+The service must resolve by event time, not by current time only.
+
+- [ ] **Step 3: Implement attribution enrichment**
+
+`enrichFactDimensions({ fact, binding, snapshotResolver })` returns a fact command with typed `dimensions` populated from normalized payload and binding state.
+
+Rules:
+
+- bound exchange-internal facts get `strategy_id` and `strategy_version`.
+- unbound/blocked facts do not guess attribution and return a pending-attribution diagnostic.
+- `snapshot_id` is copied only from the snapshot resolver result.
+- `snapshot_time` remains reserved for `account_balance_snapshot` natural keys and must not be used as a substitute for `snapshot_id`.
+
+- [ ] **Step 4: Run tests**
+
+Run:
+
+```bash
+npm run test -- tests/ledger/binance/bindings.test.ts tests/ledger/binance/attribution.test.ts
+npm run typecheck
+```
+
+Expected: both commands exit 0.
+
+## Task 3: Binance Client and Rate Policy
 
 **Files:**
 - Create: `src/ledger/binance/client.ts`
@@ -148,7 +227,7 @@ npm run typecheck
 
 Expected: both commands exit 0 without network.
 
-## Task 3: Normalizers
+## Task 4: Normalizers
 
 **Files:**
 - Create: `src/ledger/binance/normalizers.ts`
@@ -169,6 +248,7 @@ Assert:
 - origin is `binance_user_data`.
 - source mode is not assigned by normalizer; sync service assigns batch `source_mode = "live"`.
 - idempotency keys follow ledger PRD natural keys.
+- normalized facts include typed dimensions needed by P2-0/P2-4/P2-6: account, asset/base/quote, symbol, external ID where present, and attribution fields after enrichment.
 
 Run:
 
@@ -193,7 +273,7 @@ npm run typecheck
 
 Expected: both commands exit 0.
 
-## Task 4: Sync Service and Cursor Atomicity
+## Task 5: Sync Service and Cursor Atomicity
 
 **Files:**
 - Create: `src/ledger/binance/sync-service.ts`
@@ -243,7 +323,7 @@ npm run typecheck
 
 Expected: both commands exit 0 without network.
 
-## Task 5: Explicit Live CLI and Boundary Tests
+## Task 6: Explicit Live CLI and Boundary Tests
 
 **Files:**
 - Create: `src/ledger/binance/cli.ts`
@@ -303,7 +383,7 @@ npm run typecheck
 
 Expected: both commands exit 0 without network.
 
-## Task 6: Manual Live Smoke Procedure
+## Task 7: Manual Live Smoke Procedure
 
 **Files:**
 - Create or update: `docs/implementation/p2-ledger/p2-3-binance-live-sync/live-smoke.md`
@@ -323,7 +403,7 @@ Include:
 
 Live smoke requires human explicit remote execution. Local implementation verification stops at mocked tests and `npm run verify`.
 
-## Task 7: Final Verification
+## Task 8: Final Verification
 
 - [ ] **Step 1: Run focused tests**
 

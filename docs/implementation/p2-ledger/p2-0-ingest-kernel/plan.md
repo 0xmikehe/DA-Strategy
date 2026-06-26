@@ -60,7 +60,31 @@ Use these Prisma model names so generated client names are predictable:
 - `LedgerReversal` -> `ledger_reversal`
 - `AccountBalanceSnapshot` -> `account_balance_snapshot`
 
-The minimal source fact tables keep common ingest columns plus `payload Json`. P2-3/P2-4 can later promote selected payload fields to typed columns without changing the single ingest boundary.
+The source fact tables keep common ingest columns, minimum replay/query dimensions, and `payload Json`. `payload` preserves redacted raw evidence, but P2-4 replay and P2-6 page filters must not depend on ad hoc JSON parsing for core dimensions.
+
+Minimum typed dimensions:
+
+- `exchange_account_id`
+- `asset`
+- `base_asset`
+- `quote_asset`
+- `symbol`
+- `external_id`
+- `strategy_id`
+- `strategy_version`
+- `snapshot_id`
+- `snapshot_time`
+
+Unused dimensions stay nullable on fact kinds that do not need them. P2-3/P2-4 may later promote more domain-specific fields, but they must not remove this minimum contract.
+
+`snapshot_id` is the decision snapshot container reference used by trade/review flows. `snapshot_time` is only for reported balance snapshot identity and must not be used as a substitute for `snapshot_id`.
+
+Natural key rules:
+
+- `source_mode` is never part of a source fact natural key.
+- `origin` is audit context and must not be the only thing distinguishing two otherwise identical real-world facts.
+- `account_balance_snapshot` natural key is `exchange_account_id + asset + snapshot_time + reported_scope`.
+- If the same real fact arrives through `remote_import` and later through `live`, P2-0 deduplicates or raises a payload conflict by natural key and payload hash. It does not create two account truths.
 
 ## Task 1: Add Ledger Ingest Schema
 
@@ -228,11 +252,22 @@ model ExchangeTradeFill {
   origin         Json
   occurredAt     DateTime             @map("occurred_at")
   sourceEventTime DateTime?           @map("source_event_time")
+  exchangeAccountId String?           @map("exchange_account_id")
+  asset          String?
+  baseAsset      String?              @map("base_asset")
+  quoteAsset     String?              @map("quote_asset")
+  symbol         String?
+  externalId     String?              @map("external_id")
+  strategyId     String?              @map("strategy_id")
+  strategyVersion String?             @map("strategy_version")
+  snapshotId     String?              @map("snapshot_id")
+  snapshotTime   DateTime?            @map("snapshot_time")
   payloadHash    String               @map("payload_hash")
   payload        Json
-  reversedAt     DateTime?            @map("reversed_at")
   createdAt      DateTime             @default(now()) @map("created_at")
 
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
   @@index([sourceMode, occurredAt])
   @@map("exchange_trade_fill")
 }
@@ -245,11 +280,22 @@ model ExchangeOrder {
   origin         Json
   occurredAt     DateTime             @map("occurred_at")
   sourceEventTime DateTime?           @map("source_event_time")
+  exchangeAccountId String?           @map("exchange_account_id")
+  asset          String?
+  baseAsset      String?              @map("base_asset")
+  quoteAsset     String?              @map("quote_asset")
+  symbol         String?
+  externalId     String?              @map("external_id")
+  strategyId     String?              @map("strategy_id")
+  strategyVersion String?             @map("strategy_version")
+  snapshotId     String?              @map("snapshot_id")
+  snapshotTime   DateTime?            @map("snapshot_time")
   payloadHash    String               @map("payload_hash")
   payload        Json
-  reversedAt     DateTime?            @map("reversed_at")
   createdAt      DateTime             @default(now()) @map("created_at")
 
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
   @@index([sourceMode, occurredAt])
   @@map("exchange_order")
 }
@@ -262,11 +308,22 @@ model CapitalFlowEvent {
   origin         Json
   occurredAt     DateTime             @map("occurred_at")
   sourceEventTime DateTime?           @map("source_event_time")
+  exchangeAccountId String?           @map("exchange_account_id")
+  asset          String?
+  baseAsset      String?              @map("base_asset")
+  quoteAsset     String?              @map("quote_asset")
+  symbol         String?
+  externalId     String?              @map("external_id")
+  strategyId     String?              @map("strategy_id")
+  strategyVersion String?             @map("strategy_version")
+  snapshotId     String?              @map("snapshot_id")
+  snapshotTime   DateTime?            @map("snapshot_time")
   payloadHash    String               @map("payload_hash")
   payload        Json
-  reversedAt     DateTime?            @map("reversed_at")
   createdAt      DateTime             @default(now()) @map("created_at")
 
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
   @@index([sourceMode, occurredAt])
   @@map("capital_flow_event")
 }
@@ -279,11 +336,22 @@ model ExternalTrade {
   origin         Json
   occurredAt     DateTime             @map("occurred_at")
   sourceEventTime DateTime?           @map("source_event_time")
+  exchangeAccountId String?           @map("exchange_account_id")
+  asset          String?
+  baseAsset      String?              @map("base_asset")
+  quoteAsset     String?              @map("quote_asset")
+  symbol         String?
+  externalId     String?              @map("external_id")
+  strategyId     String?              @map("strategy_id")
+  strategyVersion String?             @map("strategy_version")
+  snapshotId     String?              @map("snapshot_id")
+  snapshotTime   DateTime?            @map("snapshot_time")
   payloadHash    String               @map("payload_hash")
   payload        Json
-  reversedAt     DateTime?            @map("reversed_at")
   createdAt      DateTime             @default(now()) @map("created_at")
 
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
   @@index([sourceMode, occurredAt])
   @@map("external_trade")
 }
@@ -296,11 +364,22 @@ model AttributionRecord {
   origin         Json
   occurredAt     DateTime             @map("occurred_at")
   sourceEventTime DateTime?           @map("source_event_time")
+  exchangeAccountId String?           @map("exchange_account_id")
+  asset          String?
+  baseAsset      String?              @map("base_asset")
+  quoteAsset     String?              @map("quote_asset")
+  symbol         String?
+  externalId     String?              @map("external_id")
+  strategyId     String?              @map("strategy_id")
+  strategyVersion String?             @map("strategy_version")
+  snapshotId     String?              @map("snapshot_id")
+  snapshotTime   DateTime?            @map("snapshot_time")
   payloadHash    String               @map("payload_hash")
   payload        Json
-  reversedAt     DateTime?            @map("reversed_at")
   createdAt      DateTime             @default(now()) @map("created_at")
 
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
   @@index([sourceMode, occurredAt])
   @@map("attribution_record")
 }
@@ -313,6 +392,16 @@ model LedgerReversal {
   origin                     Json
   occurredAt                 DateTime             @map("occurred_at")
   sourceEventTime            DateTime?            @map("source_event_time")
+  exchangeAccountId          String?              @map("exchange_account_id")
+  asset                      String?
+  baseAsset                  String?              @map("base_asset")
+  quoteAsset                 String?              @map("quote_asset")
+  symbol                     String?
+  externalId                 String?              @map("external_id")
+  strategyId                 String?              @map("strategy_id")
+  strategyVersion            String?              @map("strategy_version")
+  snapshotId                 String?              @map("snapshot_id")
+  snapshotTime               DateTime?            @map("snapshot_time")
   payloadHash                String               @map("payload_hash")
   payload                    Json
   targetFactKind             LedgerFactKind       @map("target_fact_kind")
@@ -321,6 +410,8 @@ model LedgerReversal {
   createdAt                  DateTime             @default(now()) @map("created_at")
 
   @@index([targetFactKind, targetFactIdempotencyKey])
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
   @@index([sourceMode, occurredAt])
   @@map("ledger_reversal")
 }
@@ -333,11 +424,22 @@ model AccountBalanceSnapshot {
   origin         Json
   occurredAt     DateTime             @map("occurred_at")
   sourceEventTime DateTime?           @map("source_event_time")
+  exchangeAccountId String?           @map("exchange_account_id")
+  asset          String?
+  baseAsset      String?              @map("base_asset")
+  quoteAsset     String?              @map("quote_asset")
+  symbol         String?
+  externalId     String?              @map("external_id")
+  strategyId     String?              @map("strategy_id")
+  strategyVersion String?             @map("strategy_version")
+  snapshotId     String?              @map("snapshot_id")
+  snapshotTime   DateTime?            @map("snapshot_time")
   payloadHash    String               @map("payload_hash")
   payload        Json
-  reversedAt     DateTime?            @map("reversed_at")
   createdAt      DateTime             @default(now()) @map("created_at")
 
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
   @@index([sourceMode, occurredAt])
   @@map("account_balance_snapshot")
 }
@@ -413,6 +515,7 @@ const baseCommand = {
       occurred_at: "2026-06-25T00:00:00.000Z",
       payload: {
         exchange_account_id: "acct_1",
+        asset: "BTC",
         symbol: "BTCUSDT",
         trade_id: "100",
         price: "65000.00",
@@ -428,6 +531,11 @@ describe("ledger ingest validation", () => {
 
     expect(command.batch.source_mode).toBe("fixture");
     expect(command.facts[0]?.origin).toEqual({ kind: "fixture", fixture_id: "fixture_p2_0" });
+    expect(command.facts[0]?.dimensions).toMatchObject({
+      exchange_account_id: "acct_1",
+      symbol: "BTCUSDT",
+      asset: "BTC"
+    });
   });
 
   it("rejects commands without source mode", () => {
@@ -494,6 +602,39 @@ describe("ledger ingest validation", () => {
     expect(() => validateLedgerIngestCommand(invalid)).toThrow("LEDGER_INGEST_DECIMAL_STRING_REQUIRED");
   });
 
+  it("rejects invalid decimal strings in known financial payload fields", () => {
+    const invalid = {
+      ...baseCommand,
+      facts: [
+        {
+          ...baseCommand.facts[0],
+          payload: {
+            ...baseCommand.facts[0].payload,
+            price: "not-a-decimal"
+          }
+        }
+      ]
+    };
+
+    expect(() => validateLedgerIngestCommand(invalid)).toThrow("LEDGER_INGEST_DECIMAL_STRING_INVALID");
+  });
+
+  it("rejects dimensions that conflict with payload dimensions", () => {
+    const invalid = {
+      ...baseCommand,
+      facts: [
+        {
+          ...baseCommand.facts[0],
+          dimensions: {
+            exchange_account_id: "different_account"
+          }
+        }
+      ]
+    };
+
+    expect(() => validateLedgerIngestCommand(invalid)).toThrow("LEDGER_INGEST_DIMENSION_CONFLICT");
+  });
+
   it("canonical hash is stable regardless of object key order", () => {
     expect(canonicalHash({ b: "2", a: "1" })).toBe(canonicalHash({ a: "1", b: "2" }));
   });
@@ -524,6 +665,8 @@ export type LedgerIngestErrorCode =
   | "LEDGER_INGEST_SYNC_METADATA_REQUIRED"
   | "LEDGER_INGEST_IDEMPOTENCY_KEY_REQUIRED"
   | "LEDGER_INGEST_DECIMAL_STRING_REQUIRED"
+  | "LEDGER_INGEST_DECIMAL_STRING_INVALID"
+  | "LEDGER_INGEST_DIMENSION_CONFLICT"
   | "LEDGER_INGEST_TIMESTAMP_INVALID"
   | "LEDGER_INGEST_EMPTY_FACTS"
   | "IDEMPOTENCY_CONFLICT"
@@ -636,6 +779,19 @@ export type LedgerCursorAdvancement = {
   metadata_hash?: string;
 };
 
+export type LedgerFactDimensions = {
+  exchange_account_id?: string;
+  asset?: string;
+  base_asset?: string;
+  quote_asset?: string;
+  symbol?: string;
+  external_id?: string;
+  strategy_id?: string;
+  strategy_version?: string;
+  snapshot_id?: string;
+  snapshot_time?: IsoDateTimeString;
+};
+
 export type LedgerIngestBatch = {
   idempotency_key: string;
   source_mode: LedgerDataSourceMode;
@@ -656,6 +812,7 @@ export type LedgerFactCommand = {
   occurred_at: IsoDateTimeString;
   source_event_time?: IsoDateTimeString;
   payload_hash?: string;
+  dimensions?: LedgerFactDimensions;
   payload: Record<string, unknown>;
 };
 
@@ -737,6 +894,21 @@ const factKindSchema = z.enum([
   "account_balance_snapshot"
 ]);
 
+const dimensionsSchema = z
+  .object({
+    exchange_account_id: nonEmptyString.optional(),
+    asset: nonEmptyString.optional(),
+    base_asset: nonEmptyString.optional(),
+    quote_asset: nonEmptyString.optional(),
+    symbol: nonEmptyString.optional(),
+    external_id: nonEmptyString.optional(),
+    strategy_id: nonEmptyString.optional(),
+    strategy_version: nonEmptyString.optional(),
+    snapshot_id: nonEmptyString.optional(),
+    snapshot_time: isoDateTime.optional()
+  })
+  .optional();
+
 const originSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("binance_user_data"), endpoint: nonEmptyString, original_source_mode: sourceModeSchema.optional() }),
   z.object({ kind: z.literal("remote_export"), export_run_id: nonEmptyString, original_source_mode: sourceModeSchema.optional() }),
@@ -804,6 +976,7 @@ const factSchema = z.object({
   occurred_at: isoDateTime,
   source_event_time: isoDateTime.optional(),
   payload_hash: nonEmptyString.optional(),
+  dimensions: dimensionsSchema,
   payload: z.record(z.unknown())
 });
 
@@ -844,15 +1017,50 @@ export function validateLedgerIngestCommand(input: unknown): LedgerIngestCommand
   validateFactsOrCursor(command);
   validateSourceModeMetadata(command);
   validateFactOrigins(command);
-  validateDecimalStrings(command.facts);
+  const facts = command.facts.map((fact) =>
+    normalizeFactDimensions({
+      ...fact,
+      origin: fact.origin ?? command.batch.default_origin
+    })
+  );
+  validateDecimalStrings(facts);
 
   return {
     ...command,
-    facts: command.facts.map((fact) => ({
-      ...fact,
-      origin: fact.origin ?? command.batch.default_origin
-    }))
+    facts
   };
+}
+
+const dimensionKeys = [
+  "exchange_account_id",
+  "asset",
+  "base_asset",
+  "quote_asset",
+  "symbol",
+  "external_id",
+  "strategy_id",
+  "strategy_version",
+  "snapshot_id",
+  "snapshot_time"
+] as const;
+
+function normalizeFactDimensions(fact: LedgerFactCommand): LedgerFactCommand {
+  const dimensions = { ...(fact.dimensions ?? {}) };
+
+  for (const key of dimensionKeys) {
+    const payloadValue = fact.payload[key];
+    const dimensionValue = dimensions[key];
+
+    if (dimensionValue && typeof payloadValue === "string" && payloadValue !== dimensionValue) {
+      throw new IngestValidationError("LEDGER_INGEST_DIMENSION_CONFLICT");
+    }
+
+    if (!dimensionValue && typeof payloadValue === "string") {
+      dimensions[key] = payloadValue;
+    }
+  }
+
+  return { ...fact, dimensions };
 }
 
 function validateFactsOrCursor(command: LedgerIngestCommand) {
@@ -909,12 +1117,25 @@ function walkPayload(value: unknown) {
 
   if (value && typeof value === "object") {
     for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-      if (typeof child === "number" && /amount|price|qty|quantity|fee|commission|cost/i.test(key)) {
-        throw new IngestValidationError("LEDGER_INGEST_DECIMAL_STRING_REQUIRED");
+      if (isDecimalField(key)) {
+        if (typeof child !== "string") {
+          throw new IngestValidationError("LEDGER_INGEST_DECIMAL_STRING_REQUIRED");
+        }
+        if (!/^-?\d+(\.\d+)?$/.test(child)) {
+          throw new IngestValidationError("LEDGER_INGEST_DECIMAL_STRING_INVALID");
+        }
       }
       walkPayload(child);
     }
   }
+}
+
+function isDecimalField(key: string): boolean {
+  if (/(^|_)asset$|(^|_)symbol$|(^|_)id$/i.test(key)) {
+    return false;
+  }
+
+  return /(^|_)(amount|price|qty|quantity|fee|commission|cost|notional|principal|free|locked|total)(_|$)/i.test(key);
 }
 ```
 
@@ -1165,9 +1386,10 @@ describe("appendLedgerFacts", () => {
     await appendLedgerFacts(fixtureTradeCommand());
     const result = await appendLedgerFacts(fixtureTradeCommand());
 
-    expect(result.inserted.exchange_trade_fill).toBe(0);
-    expect(result.skipped_duplicate.exchange_trade_fill).toBe(1);
+    expect(result.inserted.exchange_trade_fill).toBe(1);
+    expect(result.skipped_duplicate.exchange_trade_fill).toBe(0);
     await expect(prisma.exchangeTradeFill.count()).resolves.toBe(1);
+    await expect(prisma.ledgerFactObservation.count()).resolves.toBe(1);
   });
 
   it("rejects same batch idempotency key with different canonical content", async () => {
@@ -1214,6 +1436,38 @@ describe("appendLedgerFacts", () => {
     expect(cursor?.cursorValue).toBe("100");
   });
 
+  it("repeating an old cursor batch returns stored summary without moving the cursor backward", async () => {
+    await appendLedgerFacts(liveEmptyCursorCommand());
+    await appendLedgerFacts({
+      ...liveEmptyCursorCommand(),
+      batch: {
+        ...liveEmptyCursorCommand().batch,
+        idempotency_key: "batch_live_empty_cursor_002"
+      },
+      cursor_advancements: [
+        {
+          owner: "ledger:acct_1:spot_my_trades",
+          cursor_key: "BTCUSDT",
+          previous_cursor_value: "100",
+          next_cursor_value: "200"
+        }
+      ]
+    });
+
+    const replayResult = await appendLedgerFacts(liveEmptyCursorCommand());
+    const cursor = await prisma.syncCursor.findUnique({
+      where: {
+        owner_cursorKey: {
+          owner: "ledger:acct_1:spot_my_trades",
+          cursorKey: "BTCUSDT"
+        }
+      }
+    });
+
+    expect(replayResult.cursor_advancements).toBe(1);
+    expect(cursor?.cursorValue).toBe("200");
+  });
+
   it("does not advance cursor when a fact conflict aborts the batch", async () => {
     await appendLedgerFacts(fixtureTradeCommand());
 
@@ -1253,6 +1507,16 @@ describe("appendLedgerFacts", () => {
 
     expect(result.inserted.reversal).toBe(1);
     await expect(prisma.exchangeTradeFill.count()).resolves.toBe(1);
+    await expect(prisma.ledgerReversal.count()).resolves.toBe(1);
+  });
+
+  it("repeating the same reversal batch is idempotent", async () => {
+    await appendLedgerFacts(fixtureTradeCommand());
+    const command = reversalCommand("exchange_trade_fill", "trade_acct_1_btcusdt_100");
+    await appendLedgerFacts(command);
+    const result = await appendLedgerFacts(command);
+
+    expect(result.inserted.reversal).toBe(1);
     await expect(prisma.ledgerReversal.count()).resolves.toBe(1);
   });
 });
@@ -1325,22 +1589,24 @@ export async function appendLedgerFacts(
       throw new LedgerIngestConflictError("IDEMPOTENCY_CONFLICT");
     }
 
-    const batch =
-      existingBatch ??
-      (await tx.ledgerIngestBatch.create({
-        data: {
-          idempotencyKey: command.batch.idempotency_key,
-          sourceMode: command.batch.source_mode,
-          defaultOrigin: command.batch.default_origin as Prisma.InputJsonValue | undefined,
-          actor: command.batch.actor as Prisma.InputJsonValue,
-          trigger: command.batch.trigger as Prisma.InputJsonValue,
-          requestedAt: new Date(command.batch.requested_at),
-          packageMetadata: command.batch.package_metadata as Prisma.InputJsonValue | undefined,
-          importMetadata: command.batch.import_metadata as Prisma.InputJsonValue | undefined,
-          syncMetadata: command.batch.sync_metadata as Prisma.InputJsonValue | undefined,
-          canonicalHash: batchHash
-        }
-      }));
+    if (existingBatch) {
+      return storedBatchResult(existingBatch.resultSummary);
+    }
+
+    const batch = await tx.ledgerIngestBatch.create({
+      data: {
+        idempotencyKey: command.batch.idempotency_key,
+        sourceMode: command.batch.source_mode,
+        defaultOrigin: command.batch.default_origin as Prisma.InputJsonValue | undefined,
+        actor: command.batch.actor as Prisma.InputJsonValue,
+        trigger: command.batch.trigger as Prisma.InputJsonValue,
+        requestedAt: new Date(command.batch.requested_at),
+        packageMetadata: command.batch.package_metadata as Prisma.InputJsonValue | undefined,
+        importMetadata: command.batch.import_metadata as Prisma.InputJsonValue | undefined,
+        syncMetadata: command.batch.sync_metadata as Prisma.InputJsonValue | undefined,
+        canonicalHash: batchHash
+      }
+    });
 
     const result = emptyResult(batch.id, command.batch.idempotency_key, command.batch.source_mode);
 
@@ -1439,23 +1705,60 @@ function emptyCounts(): Record<LedgerFactKind, number> {
   return Object.fromEntries(factKinds.map((kind) => [kind, 0])) as Record<LedgerFactKind, number>;
 }
 
+function storedBatchResult(value: Prisma.JsonValue | null): LedgerIngestResult {
+  if (!value || typeof value !== "object") {
+    throw new LedgerIngestConflictError("IDEMPOTENCY_CONFLICT", "Existing batch is missing result summary");
+  }
+
+  return value as unknown as LedgerIngestResult;
+}
+
 async function findExistingFact(tx: Tx, kind: LedgerFactKind, idempotencyKey: string, naturalKey: string) {
-  const where = [{ idempotencyKey }, { naturalKey }];
+  const byNaturalKey = await findFactByNaturalKey(tx, kind, naturalKey);
+  const byIdempotencyKey = await findFactByIdempotencyKey(tx, kind, idempotencyKey);
+
+  if (byIdempotencyKey && byIdempotencyKey.naturalKey !== naturalKey) {
+    throw new LedgerIngestConflictError("FACT_CONFLICT");
+  }
+
+  return byNaturalKey ?? byIdempotencyKey;
+}
+
+async function findFactByNaturalKey(tx: Tx, kind: LedgerFactKind, naturalKey: string) {
   switch (kind) {
     case "exchange_trade_fill":
-      return tx.exchangeTradeFill.findFirst({ where: { OR: where } });
+      return tx.exchangeTradeFill.findUnique({ where: { naturalKey } });
     case "exchange_order":
-      return tx.exchangeOrder.findFirst({ where: { OR: where } });
+      return tx.exchangeOrder.findUnique({ where: { naturalKey } });
     case "capital_flow_event":
-      return tx.capitalFlowEvent.findFirst({ where: { OR: where } });
+      return tx.capitalFlowEvent.findUnique({ where: { naturalKey } });
     case "external_trade":
-      return tx.externalTrade.findFirst({ where: { OR: where } });
+      return tx.externalTrade.findUnique({ where: { naturalKey } });
     case "attribution_record":
-      return tx.attributionRecord.findFirst({ where: { OR: where } });
+      return tx.attributionRecord.findUnique({ where: { naturalKey } });
     case "reversal":
-      return tx.ledgerReversal.findFirst({ where: { OR: where } });
+      return tx.ledgerReversal.findUnique({ where: { naturalKey } });
     case "account_balance_snapshot":
-      return tx.accountBalanceSnapshot.findFirst({ where: { OR: where } });
+      return tx.accountBalanceSnapshot.findUnique({ where: { naturalKey } });
+  }
+}
+
+async function findFactByIdempotencyKey(tx: Tx, kind: LedgerFactKind, idempotencyKey: string) {
+  switch (kind) {
+    case "exchange_trade_fill":
+      return tx.exchangeTradeFill.findUnique({ where: { idempotencyKey } });
+    case "exchange_order":
+      return tx.exchangeOrder.findUnique({ where: { idempotencyKey } });
+    case "capital_flow_event":
+      return tx.capitalFlowEvent.findUnique({ where: { idempotencyKey } });
+    case "external_trade":
+      return tx.externalTrade.findUnique({ where: { idempotencyKey } });
+    case "attribution_record":
+      return tx.attributionRecord.findUnique({ where: { idempotencyKey } });
+    case "reversal":
+      return tx.ledgerReversal.findUnique({ where: { idempotencyKey } });
+    case "account_balance_snapshot":
+      return tx.accountBalanceSnapshot.findUnique({ where: { idempotencyKey } });
   }
 }
 
@@ -1467,6 +1770,16 @@ async function createFact(tx: Tx, command: LedgerIngestCommand, fact: LedgerFact
     origin: fact.origin as Prisma.InputJsonValue,
     occurredAt: new Date(fact.occurred_at),
     sourceEventTime: fact.source_event_time ? new Date(fact.source_event_time) : undefined,
+    exchangeAccountId: fact.dimensions?.exchange_account_id,
+    asset: fact.dimensions?.asset,
+    baseAsset: fact.dimensions?.base_asset,
+    quoteAsset: fact.dimensions?.quote_asset,
+    symbol: fact.dimensions?.symbol,
+    externalId: fact.dimensions?.external_id,
+    strategyId: fact.dimensions?.strategy_id,
+    strategyVersion: fact.dimensions?.strategy_version,
+    snapshotId: fact.dimensions?.snapshot_id,
+    snapshotTime: fact.dimensions?.snapshot_time ? new Date(fact.dimensions.snapshot_time) : undefined,
     payloadHash,
     payload: fact.payload as Prisma.InputJsonValue
   };
@@ -1499,7 +1812,7 @@ async function createFact(tx: Tx, command: LedgerIngestCommand, fact: LedgerFact
 async function assertReversalTarget(tx: Tx, fact: LedgerFactCommand) {
   const targetKind = asString(fact.payload.target_fact_kind) as LedgerFactKind;
   const targetIdempotencyKey = asString(fact.payload.target_fact_idempotency_key);
-  const target = await findExistingFact(tx, targetKind, targetIdempotencyKey, targetIdempotencyKey);
+  const target = await findFactByIdempotencyKey(tx, targetKind, targetIdempotencyKey);
   if (!target) {
     throw new IngestValidationError("REVERSAL_TARGET_NOT_FOUND");
   }
@@ -1529,14 +1842,9 @@ function collectReplayHint(result: LedgerIngestResult, fact: LedgerFactCommand) 
       ? result.replay_hint.earliest_occurred_at
       : fact.occurred_at;
 
-  addUnique(result.replay_hint.affected_exchange_account_ids, stringPayload(fact, "exchange_account_id"));
-  addUnique(result.replay_hint.affected_strategy_ids, stringPayload(fact, "strategy_id"));
-  addUnique(result.replay_hint.affected_assets, stringPayload(fact, "asset"));
-}
-
-function stringPayload(fact: LedgerFactCommand, key: string): string | undefined {
-  const value = fact.payload[key];
-  return typeof value === "string" ? value : undefined;
+  addUnique(result.replay_hint.affected_exchange_account_ids, fact.dimensions?.exchange_account_id);
+  addUnique(result.replay_hint.affected_strategy_ids, fact.dimensions?.strategy_id);
+  addUnique(result.replay_hint.affected_assets, fact.dimensions?.asset);
 }
 
 function addUnique(values: string[], value: string | undefined) {
@@ -1756,6 +2064,7 @@ import { describe, expect, it } from "vitest";
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../");
 const allowedWriter = path.normalize("src/ledger/ingest/append-ledger-facts.ts");
+const scannedRoots = ["src", "scripts", "prisma", "tests"];
 const sourceTableClientNames = [
   "exchangeTradeFill",
   "exchangeOrder",
@@ -1765,17 +2074,26 @@ const sourceTableClientNames = [
   "ledgerReversal",
   "accountBalanceSnapshot"
 ];
+const sourceTableDbNames = [
+  "exchange_trade_fill",
+  "exchange_order",
+  "capital_flow_event",
+  "external_trade",
+  "attribution_record",
+  "ledger_reversal",
+  "account_balance_snapshot"
+];
 
 const writeMethods = ["create", "createMany", "update", "updateMany", "upsert", "delete", "deleteMany"];
 
 describe("ledger source facts have one writer", () => {
   it("blocks direct Prisma writes outside appendLedgerFacts", async () => {
-    const files = await collectSourceFiles(path.join(workspaceRoot, "src"));
+    const files = await collectExistingSourceFiles(scannedRoots.map((root) => path.join(workspaceRoot, root)));
     const violations: string[] = [];
 
     for (const file of files) {
       const relative = path.normalize(path.relative(workspaceRoot, file));
-      if (relative === allowedWriter) {
+      if (relative === allowedWriter || relative === path.normalize("tests/ledger/ingest/no-direct-ledger-writes.test.ts")) {
         continue;
       }
 
@@ -1786,6 +2104,18 @@ describe("ledger source facts have one writer", () => {
           if (pattern.test(content)) {
             violations.push(`${relative}: prisma.${clientName}.${method}`);
           }
+
+          const dynamicPattern = new RegExp(`\\[[\"'\`]${clientName}[\"'\`]\\]\\s*\\.\\s*${method}\\s*\\(`);
+          if (dynamicPattern.test(content)) {
+            violations.push(`${relative}: prisma["${clientName}"].${method}`);
+          }
+        }
+      }
+
+      for (const dbName of sourceTableDbNames) {
+        const rawWritePattern = new RegExp(`\\$executeRaw(?:Unsafe)?[\\s\\S]{0,240}\\b(INSERT|UPDATE|DELETE|TRUNCATE)\\b[\\s\\S]{0,240}\\b${dbName}\\b`, "i");
+        if (rawWritePattern.test(content)) {
+          violations.push(`${relative}: raw SQL write against ${dbName}`);
         }
       }
     }
@@ -1793,6 +2123,23 @@ describe("ledger source facts have one writer", () => {
     expect(violations).toEqual([]);
   });
 });
+
+async function collectExistingSourceFiles(directories: string[]): Promise<string[]> {
+  const groups = await Promise.all(
+    directories.map(async (directory) => {
+      try {
+        return collectSourceFiles(directory);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return [];
+        }
+        throw error;
+      }
+    })
+  );
+
+  return groups.flat();
+}
 
 async function collectSourceFiles(directory: string): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -1896,10 +2243,15 @@ If no plan changes were needed, do not create an empty commit.
 - Binance-derived live facts require sync metadata.
 - Financial values in command payloads are decimal strings.
 - Same batch key + same canonical content is idempotent.
+- Same batch key + same canonical content returns stored result summary and does not re-run fact insertion, reversal checks, observations, or cursor advancement.
 - Same batch key + different canonical content fails.
 - Same natural fact across `remote_import` and `live` does not duplicate.
+- Same idempotency key with a different natural key fails instead of matching through an `OR` lookup.
+- `account_balance_snapshot` deduplicates by `exchange_account_id + asset + snapshot_time + reported_scope`, not by target database `source_mode`.
+- Replay/page dimensions are stored in typed nullable columns and are not only recoverable from `payload`.
+- `snapshot_id` is available for trade/review flows when supplied; `snapshot_time` remains reserved for reported balance snapshots.
 - Fact conflict aborts the transaction and does not advance cursor.
 - Empty live windows may advance cursor through the ingest transaction.
 - Reversal appends `ledger_reversal` and does not edit target rows.
-- Static guard prevents direct source-table Prisma writes outside `append-ledger-facts.ts`.
+- Static guard prevents direct source-table Prisma writes, dynamic Prisma writes, and raw SQL writes outside `append-ledger-facts.ts`.
 - `npm run verify` exits 0.

@@ -304,6 +304,14 @@ Use asset-aware thresholds. Start with a conservative default and make per-asset
 
 The writer records append-only `reconciliation_result` rows. It must not call `appendLedgerFacts()` unless a later accepted ADR makes reconciliation results part of the ingest command contract.
 
+Treat `reconciliation_result` as derived audit state:
+
+- append-only for reviewability.
+- not account truth.
+- not an input to `appendLedgerFacts()`.
+- not allowed to advance `sync_cursor`.
+- safe to rebuild from source facts and snapshots if a restore omits it.
+
 - [ ] **Step 4: Run tests**
 
 Run:

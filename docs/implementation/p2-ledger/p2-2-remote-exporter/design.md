@@ -39,7 +39,6 @@ The package builder reads normalized ledger tables and creates the P2-1 package 
 - `manifest`
 - `exchange_accounts`
 - `api_key_health_summaries`
-- `ledger_events`
 - `exchange_trade_fills`
 - `exchange_orders`
 - `capital_flow_events`
@@ -52,6 +51,8 @@ The package builder reads normalized ledger tables and creates the P2-1 package 
 - optional `raw_payload_redacted`
 
 Package rows preserve source mode, origin, trigger, idempotency keys, natural keys, occurred times, payload hashes, and redacted payloads.
+
+Only the account source fact sections are source truth. `exchange_accounts`, `api_key_health_summaries`, `reconciliation_results`, `sync_cursor_summaries`, and `raw_payload_redacted` are exported as read-only summaries, derived audit state, cursor summaries, or redacted evidence. Their presence in a package must not imply that the local importer should call `appendLedgerFacts()` for them.
 
 ### Redactor
 

@@ -16,6 +16,8 @@ Read in this order:
 
 This directory does not supersede PRDs or ADRs. It explains how accepted decisions will be implemented and verified.
 
+`docs/implementation/phase1/phase1-master-plan.md` keeps a high-level Phase 1 milestone view. When it mentions "P2: ledger thickening", this directory is the canonical execution breakdown for that milestone. Future agents should update the phase-specific documents here first, then keep the master plan as a pointer instead of creating a second P2 task list.
+
 ## Documents
 
 - `00-roadmap.md` - P2 ledger phase breakdown and dependency order.

@@ -101,11 +101,22 @@ Assignment kinds:
 - `external`
 - `unassigned`
 
+Attribution state vocabulary:
+
+| State | Meaning | Pending queue? |
+| --- | --- | --- |
+| `pending` | replay-affecting fact has no effective attribution and still needs operator classification | yes |
+| `strategy_assigned` | latest valid attribution points to strategy/version | no |
+| `external_assigned` | latest valid attribution marks the event as external/non-strategy | no |
+| `unassigned_terminal` | operator intentionally leaves the event in master/unallocated bucket | no |
+| `reversed` | target fact's accounting effect is canceled by a valid reversal | no |
+
 Rules:
 
 - Attribution changes strategy projection only.
 - Attribution does not change account balance.
 - Re-attribution appends a new record. The latest valid attribution wins during replay.
+- `assignment_kind = "unassigned"` means `unassigned_terminal`, not "still pending".
 - Batch attribution is allowed only when every target is validated before ingest.
 
 ### Reversal
@@ -163,15 +174,16 @@ P2-5 exposes a read service for P2-6:
 getPendingAttributionItems(filters)
 ```
 
-The query is read-only. It finds facts that affect replay but do not yet have an effective attribution record.
+The query is read-only. It finds facts that affect replay and are in attribution state `pending`.
 
 Initial sources:
 
 - external trades without strategy attribution.
-- imported/manual facts marked unassigned.
 - reconciliation diagnostics that point to attribution ambiguity.
+- imported/manual facts that explicitly carry a pending classification marker.
 
 The query does not write "pending" marker rows unless later implementation proves that a materialized queue is needed.
+Facts marked `unassigned_terminal`, `external_assigned`, `strategy_assigned`, or `reversed` must not appear in the pending attribution queue.
 
 ## Triggering Replay
 

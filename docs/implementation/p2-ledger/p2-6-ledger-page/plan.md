@@ -223,7 +223,7 @@ Actions:
 
 - assign to strategy/version.
 - mark external.
-- mark unassigned.
+- mark unassigned, which creates `unassigned_terminal` and removes the item from pending.
 - reverse.
 - batch attribute.
 
@@ -238,6 +238,7 @@ Use the P2-5 minimal field set. Client validation improves UX, but server action
 Test:
 
 - pending item can open attribution action.
+- marking an item external or unassigned removes it from the pending queue in the refreshed mocked state.
 - external trade form submits to mocked action path.
 - no manual balance edit control exists.
 
@@ -268,7 +269,7 @@ Read-only filters:
 - strategy.
 - time range.
 
-Rows must show source mode and origin.
+Rows must show source mode and origin. Trade/fill rows must show `snapshot_id` when present and an explicit missing-snapshot state when absent.
 
 - [ ] **Step 2: Implement binding/key health panel**
 

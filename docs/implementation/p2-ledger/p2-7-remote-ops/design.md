@@ -120,14 +120,16 @@ Must include:
 - account binding audits.
 - sync cursors.
 - export metadata.
-- reconciliation results, even if rebuildable, for audit convenience.
 
 May exclude:
 
 - caches.
+- reconciliation results, if the backup policy chooses source-truth-only backups. These results are derived and rebuildable from source facts and snapshots.
 - generated build output.
 - local development cassettes already committed.
 - plaintext secrets.
+
+Backup packages may include reconciliation results for audit convenience, but restore correctness must not depend on them. A restore that contains source facts, snapshots, and sync metadata must be able to rerun P2-4 and regenerate reconciliation state.
 
 Backup output must include:
 

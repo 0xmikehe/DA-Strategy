@@ -47,7 +47,6 @@ Initial sections:
   },
   "exchange_accounts": [],
   "api_key_health_summaries": [],
-  "ledger_events": [],
   "exchange_trade_fills": [],
   "exchange_orders": [],
   "capital_flow_events": [],
@@ -66,6 +65,32 @@ Initial sections:
 - `mock`
 - `remote_export`
 - `cassette`
+
+Section semantics:
+
+| Section | Class | Import behavior |
+| --- | --- | --- |
+| `exchange_trade_fills`, `exchange_orders`, `capital_flow_events`, `external_trades`, `attribution_records`, `reversals`, `account_balance_snapshots` | account source facts | Map to `LedgerFactCommand` and call `appendLedgerFacts()`. |
+| `exchange_accounts`, `api_key_health_summaries` | read-only summaries | Validate/redact and expose to local read models where supported; never create credentials or key material locally. |
+| `reconciliation_results` | derived audit/results | Import only after P2-4 owns a local result writer/import path. Until then, validate the section shape and report `ignored_until_phase = "P2-4"` in the import summary. |
+| `sync_cursor_summaries` | control-plane cursor summaries | Do not advance local cursors by default. Convert to `cursor_advancements` only in explicit trusted restore mode. |
+| `raw_payload_redacted` | evidence/debug payload | Validate redaction and hash coverage; never map to source facts. |
+
+All top-level sections are arrays and should be present even when empty. Unknown required sections fail validation; unknown extension-safe optional sections may be preserved in package metadata but must not be silently treated as account truth.
+
+Manifest-to-ingest metadata mapping:
+
+| Package manifest field | P2-0 metadata field | Notes |
+| --- | --- | --- |
+| `schema_version` | `package_metadata.schema_version`, `import_metadata.schema_version` | Same package schema version. |
+| `package_id` | `package_metadata.package_id` | Stable package identity. |
+| `package_kind` | import source-mode selection | `mock` -> `mock`, `remote_export` -> `remote_import`, `cassette` -> `cassette`. |
+| `export_run_id` | `import_metadata.export_run_id` | Required for `remote_export`; deterministic synthetic value is allowed for mock/cassette. |
+| `source_env_id` | `package_metadata.source_env_id`, `import_metadata.source_env_id` | Never a secret. |
+| `sync_run_id` | `package_metadata.sync_run_id`, `import_metadata.sync_run_id` | Optional. |
+| `produced_at` | `package_metadata.produced_at`, `import_metadata.exported_at` | `exported_at` is the ingest metadata name for remote import provenance. |
+| `content_hash` | `package_metadata.content_hash`, `import_metadata.content_hash` | Verified before ingestion. |
+| `redaction_level` | `package_metadata.redaction_level`, `import_metadata.redaction_level` | Required for remote imports. |
 
 Hash rule:
 
@@ -181,7 +206,10 @@ redacted package selected for regression
 - Package `attribution_records` become `LedgerFactCommand.kind = "attribution_record"`.
 - Package `reversals` become `LedgerFactCommand.kind = "reversal"`.
 - Package `account_balance_snapshots` become `LedgerFactCommand.kind = "account_balance_snapshot"`.
+- Package `exchange_accounts` and `api_key_health_summaries` do not become source facts. They are read-only summaries for local page state and operator diagnostics.
+- Package `reconciliation_results` do not call `appendLedgerFacts()`. Before P2-4 import support exists, they are validated and ignored with an explicit import summary warning.
 - Package `sync_cursor_summaries` may become `cursor_advancements` only when the package source is trusted and the import mode explicitly allows cursor restore.
+- Package `raw_payload_redacted` is never imported into source fact tables.
 - Decimal values remain strings.
 - Timestamps remain UTC ISO strings with offset.
 - Raw payload sections are optional and must already be redacted.

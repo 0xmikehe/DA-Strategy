@@ -14,7 +14,9 @@ It must not require live Binance access, remote machine access, or real account 
 
 ## Overall Acceptance
 
-- All ledger fact mutations go through `appendLedgerFacts()`.
+- All account source fact mutations go through `appendLedgerFacts()`.
+- Derived audit/result rows, such as `reconciliation_result`, are append-only but are not source facts. They may be appended by their owning service only when that service is forbidden from writing source fact tables or sync cursors.
+- Control-plane state, such as export run metadata, backup run metadata, credential health, and alerts, remains outside the source fact writer boundary. These records must not be treated as account truth.
 - Live sync, local import, cassette seed, external trade entry, attribution, and reversal paths are tested against the same ingest boundary.
 - Mock ledger service output is deterministic, offline, and routed through the same import/ingest path.
 - Ledger source facts are append-only; correction uses reversal or follow-up facts rather than silent update/delete.
@@ -28,10 +30,13 @@ It must not require live Binance access, remote machine access, or real account 
 - Export packages include `schema_version`, `export_run_id`, `source_env_id`, `sync_run_id`, `exported_at`, `content_hash`, and redaction metadata.
 - Exported packages do not contain API secrets, signed URLs, request headers, signatures, or full secret-bearing payloads.
 - Live Binance calls are opt-in commands and run only where read-only account keys are configured.
+- P2-3 owns the account binding and credential-health baseline: `exchange_account`, `api_credential`, `api_key_health_check`, and `account_binding_audit`.
+- Exchange-internal fills are automatically attributed from the physical subaccount binding active at the fill time. Manual attribution is a fallback for external, exceptional, or unresolved events.
+- Trade facts can carry `snapshot_id` when a decision snapshot is available. Missing `snapshot_id` is explicit and visible; it is not replaced by `snapshot_time`.
 - Reconciliation can compare replayed balances with reported balance snapshots and produce durable result records.
 - Ledger page states make freshness, data source, reconciliation result, and pending attribution visible.
 - Remote ops commands validate configuration without printing secret values.
-- Remote backup includes source facts, snapshots, manual/operator facts, sync cursors, metadata, and checksums; it excludes plaintext secrets.
+- Remote backup includes source facts, snapshots, manual/operator facts, sync cursors, metadata, and checksums; it excludes plaintext secrets. It may include rebuildable derived results for audit convenience, but restore correctness must not depend on derived result rows.
 - Restore smoke uses a scratch database and refuses production DB targets.
 - Logs, alerts, exports, backup metadata, and operator summaries are redacted before publication.
 - Alert payloads use safe reason codes and do not include account-sensitive balances or secret-bearing material.

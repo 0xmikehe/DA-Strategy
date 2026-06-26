@@ -158,6 +158,9 @@ Expected: both commands exit 0.
 
 Test:
 
+- source fact sections preserve source mode, origin, trigger, idempotency keys, natural keys, occurred times, payload hashes, typed dimensions, and redacted payloads.
+- summary/result/cursor sections are emitted as non-source sections and are not marked as facts to import through `appendLedgerFacts()`.
+
 - builds a package from fixture ledger facts inserted through `appendLedgerFacts()`.
 - package manifest uses `package_kind = "remote_export"`.
 - row counts match exported sections.
