@@ -541,7 +541,7 @@ flowchart TB
 
 ## 第 8 章 第一个策略实例：中长期配置策略卡
 
-> 本章把第 1–7 章的抽象 schema **实例化为一个具体策略**（总 PRD §3.3 item2、立项书 §14.3 模块三）。具体阈值/比例/价格区间是**示意性骨架**，最终数值随落地在策略档案 `docs/strategies/core_allocation_lt.md` 中敲定（同信号层「阈值在信号档案定」）。
+> 本章把第 1–7 章的抽象 schema **实例化为一个具体策略**（总 PRD §3.3 item2、立项书 §14.3 模块三）。具体阈值/比例/价格区间是**示意性骨架**，最终数值随落地在策略档案 `docs/strategies/core_allocation_lt/README.md` 中敲定（同信号层「阈值在信号档案定」）。
 
 ### 8.1 策略卡概要
 
@@ -637,7 +637,7 @@ flowchart TB
 
 ### 8.6 落地清单（建立 `docs/strategies/` 时完成）
 
-- 写 `docs/strategies/core_allocation_lt.md`（假设/规则/版本/绩效/反思，只追加）；
+- 写 `docs/strategies/core_allocation_lt/README.md` 及其后续规则文档（假设/规则/版本/绩效/反思，只追加）；
 - 敲定 §8.2 全部数值与 §8.3 的 `risk_regime`、`core_tilt`、`target_allocation_band`、`planned_action` 规则；
 - 绑定子账户、过账本安全体检（账本 PRD §3）；
 - 与信号层确认所引用信号均处「启用」态。
@@ -694,7 +694,7 @@ flowchart TB
 | # | 开放项 | 处置 |
 | --- | --- | --- |
 | 1 | **薄全局风险层三条约束的具体数值**（总投入上限、稳定币下限、单资产合计上限） | 与个人总净资产挂钩，由人配置；PRD 定结构（第 2 章），数值待人输入后回填策略配置 |
-| 2 | **第一个策略卡的全部阈值/比例/价格区间与三层决策规则** | 骨架已定（第 8 章），`risk_regime` / `target_allocation_band` / `planned_action` 的具体阈值与数值随落地在 `docs/strategies/core_allocation_lt.md` 敲定 |
+| 2 | **第一个策略卡的全部阈值/比例/价格区间与三层决策规则** | 骨架已定（第 8 章），`risk_regime` / `target_allocation_band` / `planned_action` 的具体阈值与数值随落地在 `docs/strategies/core_allocation_lt/README.md` 及其后续规则文档敲定 |
 | 3 | **`docs/strategies/` 策略册约定 + 「新增一个策略 checklist」** | 落地第 8 章策略卡时建立，与信号册（ADR-0004 决策 7）对称，引用 ADR-0005 |
 | 4 | **TWR/MWR 具体算法选型**（几何连乘 / Modified Dietz / IRR 实现细节、子区间切分边界条件） | 口径已定（第 6 章），实现细节随技术栈与落地敲定 |
 | 5 | **再平衡与分批触发参数调优** | 上线后按实际成交与复盘需求调（第 4 章） |

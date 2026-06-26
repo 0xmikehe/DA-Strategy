@@ -15,3 +15,4 @@
 | [0007](0007-phase1-cross-layer-contracts.md) | Phase 1 跨层契约基线 | Accepted | 全局（ledger / signal / strategy） | 2026-06-19 |
 | [0008](0008-p1-snapshot-content-storage.md) | P1 快照内容存储路径 | Accepted | ledger / signal / strategy / frontend | 2026-06-19 |
 | [0009](0009-p15-market-data-shadow-collector.md) | P1.5 市场数据影子采集器 | Accepted | signal / frontend / docs | 2026-06-20 |
+| [0010](0010-p2-remote-ledger-collector-and-local-import.md) | P2 远端受控账本采集与本地导入拓扑 | Accepted | 全局（ledger / signal / strategy / docs） | 2026-06-24 |

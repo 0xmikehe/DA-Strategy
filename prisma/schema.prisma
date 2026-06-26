@@ -80,6 +80,29 @@ enum MarketDerivedFactType {
   top_long_short_account_ratio
 }
 
+enum LedgerDataSourceMode {
+  fixture
+  mock
+  cassette
+  remote_import
+  live
+}
+
+enum LedgerFactKind {
+  exchange_trade_fill
+  exchange_order
+  capital_flow_event
+  external_trade
+  attribution_record
+  reversal
+  account_balance_snapshot
+}
+
+enum LedgerFactObservationStatus {
+  inserted
+  duplicate
+}
+
 model JobRun {
   id           String       @id @default(uuid())
   jobType      JobType      @map("job_type")
@@ -120,9 +143,8 @@ model DecisionSnapshot {
   contentJson       Json?    @map("content_json")
   immutabilityState String   @default("sealed") @map("immutability_state")
 
-  ledgerEvents     LedgerEvent[]
-  plannedActions   PlannedAction[]
-  tradeFills       ExchangeTradeFill[]
+  ledgerEvents   LedgerEvent[]
+  plannedActions PlannedAction[]
 
   @@index([createdAt])
   @@map("decision_snapshot")
@@ -142,7 +164,6 @@ model StrategyVersion {
   bindings       StrategyAccountBinding[]
   plannedActions PlannedAction[]
   reviewDrafts   ReviewDraft[]
-  tradeFills     ExchangeTradeFill[]
 
   @@unique([strategyId, version])
   @@index([status, effectiveFrom])
@@ -150,16 +171,16 @@ model StrategyVersion {
 }
 
 model AssetPoolItem {
-  id              String          @id @default(uuid())
-  strategyId      String          @map("strategy_id")
-  strategyVersion String          @map("strategy_version")
+  id              String    @id @default(uuid())
+  strategyId      String    @map("strategy_id")
+  strategyVersion String    @map("strategy_version")
   asset           String
   role            AssetRole
   status          AssetStatus
-  effectiveFrom   DateTime        @map("effective_from")
-  effectiveTo     DateTime?       @map("effective_to")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  effectiveFrom   DateTime  @map("effective_from")
+  effectiveTo     DateTime? @map("effective_to")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   strategy StrategyVersion @relation(fields: [strategyId, strategyVersion], references: [strategyId, version])
 
@@ -277,8 +298,6 @@ model ExchangeAccount {
 
   bindings     StrategyAccountBinding[]
   ledgerEvents LedgerEvent[]
-  tradeFills   ExchangeTradeFill[]
-  capitalFlows CapitalFlowEvent[]
 
   @@unique([exchange, externalAccountRef])
   @@index([exchange, accountRole])
@@ -296,7 +315,7 @@ model StrategyAccountBinding {
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
-  strategy       StrategyVersion @relation(fields: [strategyId, strategyVersion], references: [strategyId, version])
+  strategy        StrategyVersion @relation(fields: [strategyId, strategyVersion], references: [strategyId, version])
   exchangeAccount ExchangeAccount @relation(fields: [exchangeAccountId], references: [id])
 
   @@index([strategyId, strategyVersion])
@@ -321,8 +340,6 @@ model LedgerEvent {
 
   exchangeAccount ExchangeAccount   @relation(fields: [exchangeAccountId], references: [id])
   snapshot        DecisionSnapshot? @relation(fields: [snapshotId], references: [snapshotId])
-  tradeFill       ExchangeTradeFill?
-  capitalFlow     CapitalFlowEvent?
 
   @@unique([exchangeAccountId, eventType, idempotencyKey])
   @@index([strategyId, strategyVersion, eventTime])
@@ -331,56 +348,256 @@ model LedgerEvent {
   @@map("ledger_event")
 }
 
+model LedgerIngestBatch {
+  id              String               @id @default(uuid())
+  idempotencyKey  String               @unique @map("idempotency_key")
+  sourceMode      LedgerDataSourceMode @map("source_mode")
+  defaultOrigin   Json?                @map("default_origin")
+  actor           Json
+  trigger         Json
+  requestedAt     DateTime             @map("requested_at")
+  packageMetadata Json?                @map("package_metadata")
+  importMetadata  Json?                @map("import_metadata")
+  syncMetadata    Json?                @map("sync_metadata")
+  canonicalHash   String               @map("canonical_hash")
+  resultSummary   Json?                @map("result_summary")
+  createdAt       DateTime             @default(now()) @map("created_at")
+
+  observations LedgerFactObservation[]
+
+  @@index([sourceMode, requestedAt])
+  @@map("ledger_ingest_batch")
+}
+
+model LedgerFactObservation {
+  id             String                      @id @default(uuid())
+  batchId        String                      @map("batch_id")
+  factKind       LedgerFactKind              @map("fact_kind")
+  factTableId    String                      @map("fact_table_id")
+  idempotencyKey String                      @map("idempotency_key")
+  naturalKey     String                      @map("natural_key")
+  payloadHash    String                      @map("payload_hash")
+  status         LedgerFactObservationStatus
+  createdAt      DateTime                    @default(now()) @map("created_at")
+
+  batch LedgerIngestBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([factKind, naturalKey])
+  @@index([idempotencyKey])
+  @@map("ledger_fact_observation")
+}
+
 model ExchangeTradeFill {
-  tradeId           String    @id @default(uuid()) @map("trade_id")
-  ledgerEventId     String    @unique @map("ledger_event_id")
-  exchangeAccountId String    @map("exchange_account_id")
-  strategyId        String    @map("strategy_id")
-  strategyVersion   String    @map("strategy_version")
-  snapshotId        String    @map("snapshot_id")
-  symbol            String
-  side              TradeSide
-  price             Decimal   @db.Decimal(38, 18)
-  qty               Decimal   @db.Decimal(38, 18)
-  commissionAsset   String    @map("commission_asset")
-  commissionQty     Decimal   @map("commission_qty") @db.Decimal(38, 18)
-  time              DateTime
-  externalTradeId   String    @map("external_trade_id")
-  rawPayload        Json      @map("raw_payload")
-  createdAt         DateTime  @default(now()) @map("created_at")
+  id                String               @id @default(uuid())
+  idempotencyKey    String               @unique @map("idempotency_key")
+  naturalKey        String               @unique @map("natural_key")
+  sourceMode        LedgerDataSourceMode @map("source_mode")
+  origin            Json
+  occurredAt        DateTime             @map("occurred_at")
+  sourceEventTime   DateTime?            @map("source_event_time")
+  exchangeAccountId String?              @map("exchange_account_id")
+  asset             String?
+  baseAsset         String?              @map("base_asset")
+  quoteAsset        String?              @map("quote_asset")
+  symbol            String?
+  externalId        String?              @map("external_id")
+  strategyId        String?              @map("strategy_id")
+  strategyVersion   String?              @map("strategy_version")
+  snapshotId        String?              @map("snapshot_id")
+  snapshotTime      DateTime?            @map("snapshot_time")
+  reportedScope     String?              @map("reported_scope")
+  payloadHash       String               @map("payload_hash")
+  payload           Json
+  createdAt         DateTime             @default(now()) @map("created_at")
 
-  ledgerEvent     LedgerEvent      @relation(fields: [ledgerEventId], references: [eventId])
-  exchangeAccount ExchangeAccount  @relation(fields: [exchangeAccountId], references: [id])
-  strategy        StrategyVersion  @relation(fields: [strategyId, strategyVersion], references: [strategyId, version])
-  snapshot        DecisionSnapshot @relation(fields: [snapshotId], references: [snapshotId])
-
-  @@unique([exchangeAccountId, externalTradeId])
-  @@index([strategyId, strategyVersion, time])
-  @@index([snapshotId])
-  @@index([ledgerEventId])
+  @@index([sourceMode, occurredAt])
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
+  @@index([strategyId, occurredAt])
   @@map("exchange_trade_fill")
 }
 
+model ExchangeOrder {
+  id                String               @id @default(uuid())
+  idempotencyKey    String               @unique @map("idempotency_key")
+  naturalKey        String               @unique @map("natural_key")
+  sourceMode        LedgerDataSourceMode @map("source_mode")
+  origin            Json
+  occurredAt        DateTime             @map("occurred_at")
+  sourceEventTime   DateTime?            @map("source_event_time")
+  exchangeAccountId String?              @map("exchange_account_id")
+  asset             String?
+  baseAsset         String?              @map("base_asset")
+  quoteAsset        String?              @map("quote_asset")
+  symbol            String?
+  externalId        String?              @map("external_id")
+  strategyId        String?              @map("strategy_id")
+  strategyVersion   String?              @map("strategy_version")
+  snapshotId        String?              @map("snapshot_id")
+  snapshotTime      DateTime?            @map("snapshot_time")
+  reportedScope     String?              @map("reported_scope")
+  payloadHash       String               @map("payload_hash")
+  payload           Json
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  @@index([sourceMode, occurredAt])
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
+  @@index([strategyId, occurredAt])
+  @@map("exchange_order")
+}
+
 model CapitalFlowEvent {
-  eventId           String          @id @default(uuid()) @map("event_id")
-  ledgerEventId     String          @unique @map("ledger_event_id")
-  exchangeAccountId String          @map("exchange_account_id")
-  strategyId        String?         @map("strategy_id")
-  flowType          CapitalFlowType @map("flow_type")
-  asset             String
-  amount            Decimal         @db.Decimal(38, 18)
-  eventTime         DateTime        @map("event_time")
-  sourceAccount     String?         @map("source_account")
-  targetAccount     String?         @map("target_account")
-  externalId        String?         @map("external_id")
-  rawPayload        Json            @map("raw_payload")
-  createdAt         DateTime        @default(now()) @map("created_at")
+  id                String               @id @default(uuid())
+  idempotencyKey    String               @unique @map("idempotency_key")
+  naturalKey        String               @unique @map("natural_key")
+  sourceMode        LedgerDataSourceMode @map("source_mode")
+  origin            Json
+  occurredAt        DateTime             @map("occurred_at")
+  sourceEventTime   DateTime?            @map("source_event_time")
+  exchangeAccountId String?              @map("exchange_account_id")
+  asset             String?
+  baseAsset         String?              @map("base_asset")
+  quoteAsset        String?              @map("quote_asset")
+  symbol            String?
+  externalId        String?              @map("external_id")
+  strategyId        String?              @map("strategy_id")
+  strategyVersion   String?              @map("strategy_version")
+  snapshotId        String?              @map("snapshot_id")
+  snapshotTime      DateTime?            @map("snapshot_time")
+  reportedScope     String?              @map("reported_scope")
+  payloadHash       String               @map("payload_hash")
+  payload           Json
+  createdAt         DateTime             @default(now()) @map("created_at")
 
-  ledgerEvent     LedgerEvent     @relation(fields: [ledgerEventId], references: [eventId])
-  exchangeAccount ExchangeAccount @relation(fields: [exchangeAccountId], references: [id])
-
-  @@index([strategyId, eventTime])
-  @@index([exchangeAccountId, eventTime])
-  @@index([ledgerEventId])
+  @@index([sourceMode, occurredAt])
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
+  @@index([strategyId, occurredAt])
   @@map("capital_flow_event")
+}
+
+model ExternalTrade {
+  id                String               @id @default(uuid())
+  idempotencyKey    String               @unique @map("idempotency_key")
+  naturalKey        String               @unique @map("natural_key")
+  sourceMode        LedgerDataSourceMode @map("source_mode")
+  origin            Json
+  occurredAt        DateTime             @map("occurred_at")
+  sourceEventTime   DateTime?            @map("source_event_time")
+  exchangeAccountId String?              @map("exchange_account_id")
+  asset             String?
+  baseAsset         String?              @map("base_asset")
+  quoteAsset        String?              @map("quote_asset")
+  symbol            String?
+  externalId        String?              @map("external_id")
+  strategyId        String?              @map("strategy_id")
+  strategyVersion   String?              @map("strategy_version")
+  snapshotId        String?              @map("snapshot_id")
+  snapshotTime      DateTime?            @map("snapshot_time")
+  reportedScope     String?              @map("reported_scope")
+  payloadHash       String               @map("payload_hash")
+  payload           Json
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  @@index([sourceMode, occurredAt])
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
+  @@index([strategyId, occurredAt])
+  @@map("external_trade")
+}
+
+model AttributionRecord {
+  id                String               @id @default(uuid())
+  idempotencyKey    String               @unique @map("idempotency_key")
+  naturalKey        String               @unique @map("natural_key")
+  sourceMode        LedgerDataSourceMode @map("source_mode")
+  origin            Json
+  occurredAt        DateTime             @map("occurred_at")
+  sourceEventTime   DateTime?            @map("source_event_time")
+  exchangeAccountId String?              @map("exchange_account_id")
+  asset             String?
+  baseAsset         String?              @map("base_asset")
+  quoteAsset        String?              @map("quote_asset")
+  symbol            String?
+  externalId        String?              @map("external_id")
+  strategyId        String?              @map("strategy_id")
+  strategyVersion   String?              @map("strategy_version")
+  snapshotId        String?              @map("snapshot_id")
+  snapshotTime      DateTime?            @map("snapshot_time")
+  reportedScope     String?              @map("reported_scope")
+  payloadHash       String               @map("payload_hash")
+  payload           Json
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  @@index([sourceMode, occurredAt])
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
+  @@index([strategyId, occurredAt])
+  @@map("attribution_record")
+}
+
+model LedgerReversal {
+  id                       String               @id @default(uuid())
+  idempotencyKey           String               @unique @map("idempotency_key")
+  naturalKey               String               @unique @map("natural_key")
+  sourceMode               LedgerDataSourceMode @map("source_mode")
+  origin                   Json
+  occurredAt               DateTime             @map("occurred_at")
+  sourceEventTime          DateTime?            @map("source_event_time")
+  exchangeAccountId        String?              @map("exchange_account_id")
+  asset                    String?
+  baseAsset                String?              @map("base_asset")
+  quoteAsset               String?              @map("quote_asset")
+  symbol                   String?
+  externalId               String?              @map("external_id")
+  strategyId               String?              @map("strategy_id")
+  strategyVersion          String?              @map("strategy_version")
+  snapshotId               String?              @map("snapshot_id")
+  snapshotTime             DateTime?            @map("snapshot_time")
+  reportedScope            String?              @map("reported_scope")
+  targetFactKind           LedgerFactKind       @map("target_fact_kind")
+  targetFactIdempotencyKey String               @map("target_fact_idempotency_key")
+  reasonCode               String               @map("reason_code")
+  payloadHash              String               @map("payload_hash")
+  payload                  Json
+  createdAt                DateTime             @default(now()) @map("created_at")
+
+  @@unique([targetFactKind, targetFactIdempotencyKey])
+  @@index([sourceMode, occurredAt])
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
+  @@index([strategyId, occurredAt])
+  @@map("ledger_reversal")
+}
+
+model AccountBalanceSnapshot {
+  id                String               @id @default(uuid())
+  idempotencyKey    String               @unique @map("idempotency_key")
+  naturalKey        String               @unique @map("natural_key")
+  sourceMode        LedgerDataSourceMode @map("source_mode")
+  origin            Json
+  occurredAt        DateTime             @map("occurred_at")
+  sourceEventTime   DateTime?            @map("source_event_time")
+  exchangeAccountId String?              @map("exchange_account_id")
+  asset             String?
+  baseAsset         String?              @map("base_asset")
+  quoteAsset        String?              @map("quote_asset")
+  symbol            String?
+  externalId        String?              @map("external_id")
+  strategyId        String?              @map("strategy_id")
+  strategyVersion   String?              @map("strategy_version")
+  snapshotId        String?              @map("snapshot_id")
+  snapshotTime      DateTime?            @map("snapshot_time")
+  reportedScope     String?              @map("reported_scope")
+  payloadHash       String               @map("payload_hash")
+  payload           Json
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  @@index([sourceMode, occurredAt])
+  @@index([exchangeAccountId, occurredAt])
+  @@index([asset, occurredAt])
+  @@index([exchangeAccountId, asset, snapshotTime, reportedScope])
+  @@map("account_balance_snapshot")
 }

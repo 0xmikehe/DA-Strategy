@@ -24,7 +24,7 @@
 施工前必须先读：
 
 - `AGENTS.md`
-- `执行计划/Phase1/数字资产投资操作系统_Phase1实施总计划_v0.1.md`
+- `docs/implementation/phase1/phase1-master-plan.md`
 - `docs/decisions/0006-phase1-technical-baseline.md`
 - `docs/decisions/0007-phase1-cross-layer-contracts.md`
 - 涉及前端页面时再读 `design/数字资产投资操作系统_视觉说明.html`
@@ -48,7 +48,7 @@ P0 完成时必须满足：
 - `src/ledger/`、`src/signal/`、`src/signal/facts/`、`src/strategy/` 目录存在，且不互相越界 import。
 - `src/contracts/phase1.ts` 存在，承载 ADR-0007 的 Phase 1 DTO 最小类型。
 - `docs/api/phase1-contracts.md` 存在，引用 ADR-0007，不另起一套契约。
-- `docs/business/phase1-acceptance.md` 存在，说明 P0/P1 与完整 Phase 1 的业务验收差异。
+- `docs/business/acceptance.md` 存在，说明 P0/P1 与完整 Phase 1 的业务验收差异。
 - `AGENTS.md` §4 验证门不再是占位。
 - 没有真实 Binance key、真实账户数据、真实网络请求、自动下单能力。
 
@@ -107,7 +107,7 @@ P0 完成时必须满足：
 ### 4.3 新增或修改的文档文件
 
 - Create: `docs/api/phase1-contracts.md`
-- Create: `docs/business/phase1-acceptance.md`
+- Create: `docs/business/acceptance.md`
 - Modify: `AGENTS.md`
 
 ## 5. 施工任务
@@ -328,10 +328,10 @@ P0 完成时必须满足：
 **Files:**
 
 - Create: `tests/fixtures/phase1/README.md`
-- Create: `docs/business/phase1-acceptance.md`
+- Create: `docs/business/acceptance.md`
 
 - [ ] Document that P0 creates fixture directories only; P1 owns actual walking-skeleton fixture data.
-- [ ] In `docs/business/phase1-acceptance.md`, distinguish:
+- [ ] In `docs/business/acceptance.md`, distinguish:
   - P0 engineering acceptance
   - P1 walking-skeleton acceptance
   - full Phase 1 acceptance
@@ -416,7 +416,7 @@ P0 handoff package should include:
 - Verification command outputs.
 - List of created scripts in `package.json`.
 - Link to `docs/api/phase1-contracts.md`.
-- Link to `docs/business/phase1-acceptance.md`.
+- Link to `docs/business/acceptance.md`.
 - Notes on any intentionally empty directories:
   - `tests/fixtures/phase1/`
   - `src/signal/facts/`

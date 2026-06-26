@@ -1,7 +1,5 @@
 # Phase 1 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement each phase task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** 先在 6–8 周时间盒内跑通一条可见、可验证的行走骨架（P0 + P1），作为 go/no-go 闸门；骨架成立后再加宽到完整 Phase 1：Binance 只读数据进入市场事实库与账户事实库，信号产生快照，策略消费「启用态信号集 + 快照 ID」生成计划动作，账本回放真实执行，复盘反哺策略版本。
 
 **Architecture:** 采用三层纵向切片推进：`src/ledger/` 只管账户事实与对账，`src/signal/` 只管市场事实、信号和快照内容，`src/strategy/` 只管策略对象、计划动作、绩效和复盘。开发顺序先冻结跨层契约，再做 fixture 驱动的本地闭环，最后接真实 Binance 只读 API。
@@ -81,7 +79,7 @@
   - 回填真实验证门，例如 `lint`、`typecheck`、`test`、`test:e2e`。
 - `docs/api/phase1-contracts.md`
   - 记录前端和内部模块消费的 API / service contract；内容必须引用 ADR-0007，不得另起一套契约。
-- `docs/business/phase1-acceptance.md`
+- `docs/business/acceptance.md`
   - 用业务语言写清 6–8 周骨架验收样例与完整 Phase 1 加宽验收样例。
 
 ### 3.3 关键决策
@@ -216,48 +214,28 @@ Binance `futures/data/*` 一类数据历史保留窗口短，错过就无法回�
 
 ## 6. P2：账本加厚
 
+> Canonical breakdown: `docs/implementation/p2-ledger/README.md` and `docs/implementation/p2-ledger/00-roadmap.md`. This section is a milestone summary only; phase-specific ownership, schema, and verification details live under `docs/implementation/p2-ledger/`.
+
 ### 6.1 目标
 
 把 `src/ledger/` 做成可信账户事实底座：只追加事件流、物理子账户归属、余额回放、对账、待归属兜底。
 
 ### 6.2 实施顺序
 
-- [ ] 建立账户事实 schema：
-  - `exchange_account`
-  - `api_key_health_check`
-  - `account_binding_audit`
-  - `exchange_order`
-  - `exchange_trade_fill`
-  - `capital_flow_event`
-  - `account_balance_snapshot`
-  - `attribution_record`
-  - `sync_cursor`
-- [ ] 写 fixture 导入器，先用静态 JSON 生成事件流。
-- [ ] 写纯函数回放：
-  - account balance by account / asset
-  - strategy position by strategy / asset
-  - lot / cost basis for assets requiring cost basis
-- [ ] 实现物理子账户自动归属：
-  - `exchange_account.bound_strategy_id`
-  - 成交时间匹配当时策略版本
-  - 异常事件进入待归属队列
-- [ ] 实现守恒校验：
-  - 按资产校验账户余额、策略持仓、主账户未分配。
-- [ ] 实现对账视图：
-  - computed balance vs reported balance。
-- [ ] 实现账本页只读 API：
-  - 同步状态
-  - 账户余额
-  - 策略持仓
-  - 成交列表
-  - 对账差异
-  - 待归属队列
+- [ ] P2-0 建立 `appendLedgerFacts()` 作为唯一账户源事实写入边界。
+- [ ] P2-1 建立 mock/local import/cassette 离线数据通道。
+- [ ] P2-2 建立远端 redacted export package。
+- [ ] P2-3 建立 `exchange_account` / `api_credential` / `api_key_health_check` / `account_binding_audit` 基线、物理子账户自动归属、只读 Binance live sync。
+- [ ] P2-4 建立纯函数回放、守恒校验、computed vs reported reconciliation。
+- [ ] P2-5 建立外部交易、手工 attribution、reversal 兜底写入。
+- [ ] P2-6 建立账本页 read model 与安全 action surface。
+- [ ] P2-7 建立 remote ops、backup/restore-smoke、redaction、alerts。
 
 ### 6.3 验收标准
 
 - 给定 fixture 账户事件，回放结果与预期持仓完全一致。
 - 每笔策略内成交都有 `strategy_id` 和 `strategy_version`。
-- 对账差异能被明确标记为 `matched` / `mismatch` / `missing_reported` / `missing_computed`。
+- 对账差异能被明确标记为 `MATCHED` / `MISSING_EVENT` / `EXTERNAL_BALANCE_MISMATCH` / `NEEDS_CLASSIFICATION`。
 - 待归属队列在单策略正常路径下为空，但异常 fixture 会进入队列。
 - 账本层不暴露任何账户事实给信号层。
 
@@ -331,7 +309,7 @@ Binance `futures/data/*` 一类数据历史保留窗口短，错过就无法回�
   - `asset_pool`
   - `allocation_plan`
   - `planned_action`
-- [ ] 建立 `docs/strategies/core_allocation_lt.md`：
+- [ ] 建立 `docs/strategies/core_allocation_lt/README.md`：
   - 投资假设
   - 基准
   - 资产池
