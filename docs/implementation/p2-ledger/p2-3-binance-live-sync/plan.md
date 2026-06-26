@@ -1,12 +1,12 @@
-# P2-3 Binance Live Sync Implementation Plan
+# P2-3 Account Binding and Binance Sync Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build explicit opt-in remote Binance live sync, including account binding/key-health baseline services and automatic physical-subaccount attribution, then submit normalized account facts through `appendLedgerFacts()` with `source_mode = "live"`.
+**Goal:** Build the offline/default-gate account binding and credential-health baseline first, then add explicit opt-in remote Binance live sync that submits normalized account facts through `appendLedgerFacts()` with `source_mode = "live"`.
 
-**Architecture:** P2-3 adds account/credential/binding models, remote-only credential resolution, key health checks, signed Binance client wrappers, rate-limit/retry policy, endpoint workers, attribution enrichment, normalizers, and live sync orchestration. Binding and credential lifecycle state is control-plane/account-configuration state; account source facts and fact-related cursor advancements commit through P2-0 in one transaction.
+**Architecture:** P2-3a adds account/credential/binding models, offline-safe key-health evaluation, binding lookup, and attribution enrichment that run under default local verification. P2-3b adds remote-only credential resolution, signed Binance client wrappers, rate-limit/retry policy, endpoint workers, normalizers, and live sync orchestration. Binding and credential lifecycle state is control-plane/account-configuration state; account source facts and fact-related cursor advancements commit through P2-0 in one transaction.
 
-**Tech Stack:** TypeScript, Prisma, Zod, Node CLI via `tsx`, Vitest with mocked Binance HTTP responses, explicit remote runtime environment variables.
+**Tech Stack:** TypeScript, Prisma, Zod, Node CLI via `tsx`, Vitest with mocked Binance HTTP responses, explicit remote runtime environment variables for P2-3b only.
 
 ---
 
@@ -21,7 +21,7 @@
 ## File Structure
 
 - Modify `prisma/schema.prisma`: add credential, key health, and account binding baseline models if not already present.
-- Create `prisma/migrations/20260625110000_p2_binance_live_sync/migration.sql`.
+- Create `prisma/migrations/20260625110000_p2_account_binding_baseline/migration.sql`.
 - Create `src/ledger/binance/types.ts`.
 - Create `src/ledger/binance/credentials.ts`.
 - Create `src/ledger/binance/key-health.ts`.
@@ -40,11 +40,11 @@
 - Create `tests/ledger/binance/sync-service.test.ts`.
 - Create `tests/ledger/binance/live-boundary.test.ts`.
 
-## Task 1: Credential and Key Health Baseline
+## Task 1: P2-3a Credential and Key Health Baseline
 
 **Files:**
 - Modify: `prisma/schema.prisma`
-- Create: `prisma/migrations/20260625110000_p2_binance_live_sync/migration.sql`
+- Create: `prisma/migrations/20260625110000_p2_account_binding_baseline/migration.sql`
 - Create: `src/ledger/binance/types.ts`
 - Create: `src/ledger/binance/credentials.ts`
 - Create: `src/ledger/binance/key-health.ts`
@@ -93,14 +93,14 @@ These models are not account source facts and do not use `appendLedgerFacts()`.
 Run:
 
 ```bash
-npm run db:migrate -- --name p2_binance_live_sync
+npm run db:migrate -- --name p2_account_binding_baseline
 ```
 
-Expected: migration created. Rename directory to `20260625110000_p2_binance_live_sync` before commit if needed.
+Expected: migration created. Rename directory to `20260625110000_p2_account_binding_baseline` before commit if needed.
 
 - [ ] **Step 4: Implement credential resolver and health evaluator**
 
-`resolveBinanceCredential(keyRef)`:
+`resolveBinanceCredential(keyRef)` is a P2-3b helper and must be isolated from default/offline tests:
 
 - reads `${keyRef}_API_KEY`,
 - reads `${keyRef}_API_SECRET`,
@@ -120,7 +120,7 @@ npm run typecheck
 
 Expected: both commands exit 0.
 
-## Task 2: Binding Windows and Automatic Attribution
+## Task 2: P2-3a Binding Windows and Automatic Attribution
 
 **Files:**
 - Create: `src/ledger/binance/bindings.ts`
@@ -174,6 +174,7 @@ Rules:
 - unbound/blocked facts do not guess attribution and return a pending-attribution diagnostic.
 - `snapshot_id` is copied only from the snapshot resolver result.
 - `snapshot_time` remains reserved for `account_balance_snapshot` natural keys and must not be used as a substitute for `snapshot_id`.
+- until P3 produces decision snapshots, the snapshot resolver can return no `snapshot_id`; this is expected and should surface as a diagnostic, not a failure.
 
 - [ ] **Step 4: Run tests**
 
@@ -186,7 +187,7 @@ npm run typecheck
 
 Expected: both commands exit 0.
 
-## Task 3: Binance Client and Rate Policy
+## Task 3: P2-3b Binance Client and Rate Policy
 
 **Files:**
 - Create: `src/ledger/binance/client.ts`
@@ -227,7 +228,7 @@ npm run typecheck
 
 Expected: both commands exit 0 without network.
 
-## Task 4: Normalizers
+## Task 4: P2-3b Normalizers
 
 **Files:**
 - Create: `src/ledger/binance/normalizers.ts`
@@ -273,7 +274,7 @@ npm run typecheck
 
 Expected: both commands exit 0.
 
-## Task 5: Sync Service and Cursor Atomicity
+## Task 5: P2-3b Sync Service and Cursor Atomicity
 
 **Files:**
 - Create: `src/ledger/binance/sync-service.ts`
@@ -323,7 +324,7 @@ npm run typecheck
 
 Expected: both commands exit 0 without network.
 
-## Task 6: Explicit Live CLI and Boundary Tests
+## Task 6: P2-3b Explicit Live CLI and Boundary Tests
 
 **Files:**
 - Create: `src/ledger/binance/cli.ts`
@@ -383,7 +384,7 @@ npm run typecheck
 
 Expected: both commands exit 0 without network.
 
-## Task 7: Manual Live Smoke Procedure
+## Task 7: P2-3b Manual Live Smoke Procedure
 
 **Files:**
 - Create or update: `docs/implementation/p2-ledger/p2-3-binance-live-sync/live-smoke.md`

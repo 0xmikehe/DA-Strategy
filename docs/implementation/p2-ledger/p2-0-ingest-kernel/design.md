@@ -293,6 +293,7 @@ type LedgerFactDimensions = {
   strategy_version?: string;
   snapshot_id?: string;
   snapshot_time?: string;
+  reported_scope?: string;
 };
 
 type LedgerFactKind =
@@ -319,7 +320,7 @@ P2-0 does not need to implement full replay math, but the command shape must pre
 
 The target database `source_mode` must not be part of source-fact natural keys. It labels the ingest lane into the current database. If the same real snapshot is first imported through `remote_import` and later observed through `live` in the same database, it must deduplicate or conflict by the real-world natural key plus canonical payload hash rather than becoming two account truths.
 
-`snapshot_id` and `snapshot_time` are different fields. `snapshot_id` points to the decision snapshot container used by review and strategy replay. `snapshot_time` is only the reported balance snapshot timestamp used by `account_balance_snapshot` natural keys.
+`snapshot_id` and `snapshot_time` are different fields. `snapshot_id` points to the decision snapshot container used by review and strategy replay. `snapshot_time` is only the reported balance snapshot timestamp used by `account_balance_snapshot` natural keys. `reported_scope` is the explicit account-balance snapshot scope, such as `spot_total`, `spot_free_locked`, or another implementation-defined enumerable scope. `account_balance_snapshot` natural keys must be built from the typed dimensions, not from ad hoc payload string concatenation.
 
 ## Idempotency and Conflict Rules
 

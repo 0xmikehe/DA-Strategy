@@ -74,10 +74,12 @@ Minimum typed dimensions:
 - `strategy_version`
 - `snapshot_id`
 - `snapshot_time`
+- `reported_scope`
 
 Unused dimensions stay nullable on fact kinds that do not need them. P2-3/P2-4 may later promote more domain-specific fields, but they must not remove this minimum contract.
 
 `snapshot_id` is the decision snapshot container reference used by trade/review flows. `snapshot_time` is only for reported balance snapshot identity and must not be used as a substitute for `snapshot_id`.
+`reported_scope` is the explicit balance snapshot scope used by `account_balance_snapshot` natural keys. It must be present in `dimensions.reported_scope` for balance snapshots and mirrored from `payload.reported_scope` during validation when omitted.
 
 Natural key rules:
 
@@ -262,6 +264,7 @@ model ExchangeTradeFill {
   strategyVersion String?             @map("strategy_version")
   snapshotId     String?              @map("snapshot_id")
   snapshotTime   DateTime?            @map("snapshot_time")
+  reportedScope  String?              @map("reported_scope")
   payloadHash    String               @map("payload_hash")
   payload        Json
   createdAt      DateTime             @default(now()) @map("created_at")
@@ -290,6 +293,7 @@ model ExchangeOrder {
   strategyVersion String?             @map("strategy_version")
   snapshotId     String?              @map("snapshot_id")
   snapshotTime   DateTime?            @map("snapshot_time")
+  reportedScope  String?              @map("reported_scope")
   payloadHash    String               @map("payload_hash")
   payload        Json
   createdAt      DateTime             @default(now()) @map("created_at")
@@ -318,6 +322,7 @@ model CapitalFlowEvent {
   strategyVersion String?             @map("strategy_version")
   snapshotId     String?              @map("snapshot_id")
   snapshotTime   DateTime?            @map("snapshot_time")
+  reportedScope  String?              @map("reported_scope")
   payloadHash    String               @map("payload_hash")
   payload        Json
   createdAt      DateTime             @default(now()) @map("created_at")
@@ -346,6 +351,7 @@ model ExternalTrade {
   strategyVersion String?             @map("strategy_version")
   snapshotId     String?              @map("snapshot_id")
   snapshotTime   DateTime?            @map("snapshot_time")
+  reportedScope  String?              @map("reported_scope")
   payloadHash    String               @map("payload_hash")
   payload        Json
   createdAt      DateTime             @default(now()) @map("created_at")
@@ -374,6 +380,7 @@ model AttributionRecord {
   strategyVersion String?             @map("strategy_version")
   snapshotId     String?              @map("snapshot_id")
   snapshotTime   DateTime?            @map("snapshot_time")
+  reportedScope  String?              @map("reported_scope")
   payloadHash    String               @map("payload_hash")
   payload        Json
   createdAt      DateTime             @default(now()) @map("created_at")
@@ -402,6 +409,7 @@ model LedgerReversal {
   strategyVersion            String?              @map("strategy_version")
   snapshotId                 String?              @map("snapshot_id")
   snapshotTime               DateTime?            @map("snapshot_time")
+  reportedScope              String?              @map("reported_scope")
   payloadHash                String               @map("payload_hash")
   payload                    Json
   targetFactKind             LedgerFactKind       @map("target_fact_kind")
@@ -434,6 +442,7 @@ model AccountBalanceSnapshot {
   strategyVersion String?             @map("strategy_version")
   snapshotId     String?              @map("snapshot_id")
   snapshotTime   DateTime?            @map("snapshot_time")
+  reportedScope  String?              @map("reported_scope")
   payloadHash    String               @map("payload_hash")
   payload        Json
   createdAt      DateTime             @default(now()) @map("created_at")
@@ -790,6 +799,7 @@ export type LedgerFactDimensions = {
   strategy_version?: string;
   snapshot_id?: string;
   snapshot_time?: IsoDateTimeString;
+  reported_scope?: string;
 };
 
 export type LedgerIngestBatch = {
@@ -905,7 +915,8 @@ const dimensionsSchema = z
     strategy_id: nonEmptyString.optional(),
     strategy_version: nonEmptyString.optional(),
     snapshot_id: nonEmptyString.optional(),
-    snapshot_time: isoDateTime.optional()
+    snapshot_time: isoDateTime.optional(),
+    reported_scope: nonEmptyString.optional()
   })
   .optional();
 
@@ -1024,6 +1035,7 @@ export function validateLedgerIngestCommand(input: unknown): LedgerIngestCommand
     })
   );
   validateDecimalStrings(facts);
+  validateBalanceSnapshotScope(facts);
 
   return {
     ...command,
@@ -1041,7 +1053,8 @@ const dimensionKeys = [
   "strategy_id",
   "strategy_version",
   "snapshot_id",
-  "snapshot_time"
+  "snapshot_time",
+  "reported_scope"
 ] as const;
 
 function normalizeFactDimensions(fact: LedgerFactCommand): LedgerFactCommand {
@@ -1099,6 +1112,14 @@ function validateFactOrigins(command: LedgerIngestCommand) {
   for (const fact of command.facts) {
     if (!fact.origin && !command.batch.default_origin) {
       throw new IngestValidationError("LEDGER_INGEST_ORIGIN_REQUIRED");
+    }
+  }
+}
+
+function validateBalanceSnapshotScope(facts: LedgerFactCommand[]) {
+  for (const fact of facts) {
+    if (fact.kind === "account_balance_snapshot" && !fact.dimensions?.reported_scope) {
+      throw new IngestValidationError("LEDGER_INGEST_DIMENSION_CONFLICT", "account_balance_snapshot requires reported_scope");
     }
   }
 }
@@ -1780,6 +1801,7 @@ async function createFact(tx: Tx, command: LedgerIngestCommand, fact: LedgerFact
     strategyVersion: fact.dimensions?.strategy_version,
     snapshotId: fact.dimensions?.snapshot_id,
     snapshotTime: fact.dimensions?.snapshot_time ? new Date(fact.dimensions.snapshot_time) : undefined,
+    reportedScope: fact.dimensions?.reported_scope,
     payloadHash,
     payload: fact.payload as Prisma.InputJsonValue
   };
@@ -2248,6 +2270,7 @@ If no plan changes were needed, do not create an empty commit.
 - Same natural fact across `remote_import` and `live` does not duplicate.
 - Same idempotency key with a different natural key fails instead of matching through an `OR` lookup.
 - `account_balance_snapshot` deduplicates by `exchange_account_id + asset + snapshot_time + reported_scope`, not by target database `source_mode`.
+- `account_balance_snapshot` requires typed `reported_scope`; implementations must not infer this field from ad hoc natural-key string parsing.
 - Replay/page dimensions are stored in typed nullable columns and are not only recoverable from `payload`.
 - `snapshot_id` is available for trade/review flows when supplied; `snapshot_time` remains reserved for reported balance snapshots.
 - Fact conflict aborts the transaction and does not advance cursor.

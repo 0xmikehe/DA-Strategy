@@ -1,10 +1,15 @@
-# P2-3 Binance Live Sync Design
+# P2-3 Account Binding and Binance Sync Design
 
 ## Goal
 
-Run real Binance account sync on the remote runtime, maintain the account binding/key-health baseline required for that sync, automatically attribute exchange-internal facts from physical subaccount bindings, and submit normalized ledger facts through `appendLedgerFacts()`.
+Create the account binding/key-health baseline needed by the ledger page and importer in offline/default-gate mode, then add explicit opt-in Binance live sync on the remote runtime.
 
-Live sync is never the default local mode and is never part of `npm run verify`.
+P2-3 is split into two subphases:
+
+- **P2-3a Account binding baseline:** offline/default-gate schema, local/mock binding management, key-health summary modeling, and automatic-attribution lookup.
+- **P2-3b Binance live sync:** remote-only credential resolution, signed USER_DATA calls, live key health checks, endpoint workers, and source-fact ingestion.
+
+Only P2-3b is opt-in. P2-3a must be testable without live Binance access, remote machine access, or real account secrets.
 
 ## Prerequisites
 
@@ -18,16 +23,16 @@ P2-3 depends on:
 
 ## Components
 
-### Account Binding and Credential Baseline
+### P2-3a Account Binding and Credential Baseline
 
-P2-3 owns the baseline schema and services for:
+P2-3a owns the baseline schema and services for:
 
 - `exchange_account`
 - `api_credential`
 - `api_key_health_check`
 - `account_binding_audit`
 
-If earlier phases have not created these models, P2-3 creates them before live sync workers. Secret material never enters these tables: `api_credential` stores a `key_ref` and safe metadata only.
+If earlier phases have not created these models, P2-3a creates them before live sync workers. Secret material never enters these tables: `api_credential` stores a `key_ref` and safe metadata only.
 
 Responsibilities:
 
@@ -37,9 +42,9 @@ Responsibilities:
 - expose active binding windows for sync routing and automatic attribution.
 - write key health checks as append-only operational/security audit records.
 
-Binding and credential lifecycle state is control-plane/account-configuration state, not an account source fact. It does not go through `appendLedgerFacts()`. When a sync worker produces account source facts, those facts still go through `appendLedgerFacts()`.
+Binding and credential lifecycle state is control-plane/account-configuration state, not an account source fact. It does not go through `appendLedgerFacts()`. P2-1 imported summaries and P2-6 binding/key panels may use this baseline without enabling live sync. When a P2-3b sync worker produces account source facts, those facts still go through `appendLedgerFacts()`.
 
-### Binding and Route Resolver
+### P2-3a Binding and Route Resolver
 
 The collector resolves active ledger account bindings:
 
@@ -50,9 +55,11 @@ The collector resolves active ledger account bindings:
 
 The resolver returns endpoint work items. It does not expose secrets to strategy, signal, frontend, or package export.
 
-### Key Health Gate
+### P2-3a/P2-3b Key Health
 
-Before sync, the collector runs or checks recent key health:
+P2-3a defines the key-health schema, evaluator, reason codes, and safe summaries using mocked/local permission payloads in default tests.
+
+Before P2-3b sync, the collector runs or checks recent live key health:
 
 - `enableReading = true` required.
 - `enableWithdrawals = false` required.
@@ -62,7 +69,7 @@ Before sync, the collector runs or checks recent key health:
 
 Health summaries may be exported later through P2-2, but secrets never are.
 
-### Automatic Physical-Subaccount Attribution
+### P2-3a Automatic Physical-Subaccount Attribution
 
 For exchange-internal facts, automatic attribution is the default path:
 
@@ -80,10 +87,11 @@ Rules:
 - The version is resolved by event time, not by current strategy version.
 - When a decision snapshot exists at or before the event time, the fact carries `snapshot_id`.
 - If no snapshot exists, `snapshot_id` is `null`/absent with an explicit diagnostic; it must not be replaced by `snapshot_time`.
+- During P2, before P3 signal snapshots are producing real decision snapshot containers, the snapshot resolver may consistently return no `snapshot_id`. That is expected; the binding field and diagnostic path are structural readiness for P3.
 - Master-account funding and operational transfers may remain unassigned or become capital-flow facts according to the PRD route table.
 - Facts that cannot satisfy the automatic attribution rule are marked for P2-5 pending attribution rather than silently assigned.
 
-### Binance Client
+### P2-3b Binance Client
 
 The Binance client owns signed USER_DATA request construction.
 

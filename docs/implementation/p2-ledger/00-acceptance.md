@@ -30,7 +30,8 @@ It must not require live Binance access, remote machine access, or real account 
 - Export packages include `schema_version`, `export_run_id`, `source_env_id`, `sync_run_id`, `exported_at`, `content_hash`, and redaction metadata.
 - Exported packages do not contain API secrets, signed URLs, request headers, signatures, or full secret-bearing payloads.
 - Live Binance calls are opt-in commands and run only where read-only account keys are configured.
-- P2-3 owns the account binding and credential-health baseline: `exchange_account`, `api_credential`, `api_key_health_check`, and `account_binding_audit`.
+- P2-3a owns the offline/default-gate account binding and credential-health baseline: `exchange_account`, `api_credential`, `api_key_health_check`, and `account_binding_audit`.
+- P2-3b owns signed live sync and remains explicit opt-in. Offline pages and imports can use mocked/imported binding summaries without live Binance access.
 - Exchange-internal fills are automatically attributed from the physical subaccount binding active at the fill time. Manual attribution is a fallback for external, exceptional, or unresolved events.
 - Trade facts can carry `snapshot_id` when a decision snapshot is available. Missing `snapshot_id` is explicit and visible; it is not replaced by `snapshot_time`.
 - Reconciliation can compare replayed balances with reported balance snapshots and produce durable result records.

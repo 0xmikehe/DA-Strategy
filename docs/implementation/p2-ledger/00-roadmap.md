@@ -42,7 +42,7 @@ When a document says "ledger fact write boundary", it means the first class: acc
 | P2-0 | Ingest kernel | Define `appendLedgerFacts()` as the only ledger fact write boundary | `p2-0-ingest-kernel/design.md` |
 | P2-1 | Mock, local import, and cassette | Generate deterministic mock ledger packages, import redacted remote packages locally, and promote stable packages into offline regression fixtures | `p2-1-local-import-cassette/design.md` |
 | P2-2 | Remote exporter | Export normalized, redacted ledger packages from the remote runtime | `p2-2-remote-exporter/design.md` |
-| P2-3 | Binance live sync, binding, and key health | Own exchange account discovery, account binding, key health checks, automatic physical-subaccount attribution, signed Binance USER_DATA sync, and ingest-kernel submission | `p2-3-binance-live-sync/design.md` |
+| P2-3 | Account binding and Binance sync | P2-3a owns offline account binding/credential-health baseline; P2-3b owns opt-in signed Binance USER_DATA sync and ingest-kernel submission | `p2-3-binance-live-sync/design.md` |
 | P2-4 | Replay and reconciliation | Compare replayed balances with reported snapshots and classify differences | `p2-4-replay-reconciliation/design.md` |
 | P2-5 | Manual fallback writes | Route external trades, attribution, and reversals through the same ingest kernel | `p2-5-manual-fallback-writes/design.md` |
 | P2-6 | Ledger page | Show source mode, freshness, reconciliation, pending attribution, and safe write actions | `p2-6-ledger-page/design.md` |
@@ -53,9 +53,10 @@ When a document says "ledger fact write boundary", it means the first class: acc
 1. P2-0 must land before any path writes ledger facts.
 2. P2-1 should land before live sync so local development can generate deterministic mock ledger facts and validate realistic packages offline.
 3. P2-2 can be built against fixture/cassette data before live sync exists.
-4. P2-3 is opt-in and must not enter default local or CI gates.
-5. P2-3 owns the `exchange_account`, `api_credential`, `api_key_health_check`, and `account_binding_audit` baseline if those models do not already exist. P2-4/P2-6 may consume binding and health summaries only after P2-3 has defined them.
-6. P2-4 through P2-7 deepen correctness and operations after facts can flow through the ingest kernel.
+4. P2-3a is offline/default-gate work: it owns the `exchange_account`, `api_credential`, `api_key_health_check`, and `account_binding_audit` baseline if those models do not already exist, plus mocked/local binding management and automatic-attribution lookup.
+5. P2-3b is opt-in live work: signed Binance calls, live key health checks, endpoint workers, and remote sync. P2-3b must not enter default local or CI gates.
+6. P2-4/P2-6 may consume binding and health summaries after P2-3a has defined them; they do not need P2-3b live sync to render offline/mock/imported states.
+7. P2-4 through P2-7 deepen correctness and operations after facts can flow through the ingest kernel.
 
 ## Non-Goals
 

@@ -28,7 +28,7 @@ This directory does not supersede PRDs or ADRs. It explains how accepted decisio
 - `p2-1-local-import-cassette/plan.md` - P2-1 implementation plan.
 - `p2-2-remote-exporter/design.md` - remote ledger export package and redaction design.
 - `p2-2-remote-exporter/plan.md` - P2-2 implementation plan.
-- `p2-3-binance-live-sync/design.md` - live Binance account sync design.
+- `p2-3-binance-live-sync/design.md` - account binding baseline plus opt-in live Binance account sync design.
 - `p2-3-binance-live-sync/plan.md` - P2-3 implementation plan.
 - `p2-4-replay-reconciliation/design.md` - replay and reconciliation design.
 - `p2-4-replay-reconciliation/plan.md` - P2-4 implementation plan.

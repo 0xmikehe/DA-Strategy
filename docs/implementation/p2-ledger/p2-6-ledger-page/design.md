@@ -137,7 +137,7 @@ Filters:
 - reconciliation status link.
 
 Rows show source mode and origin. Numeric values use signed symbols and tabular alignment; color is never the only signal.
-Trade/fill rows show `snapshot_id` when present and link to the frozen market snapshot view. Missing `snapshot_id` is shown as an explicit empty state, not replaced by `snapshot_time`.
+Trade/fill rows show `snapshot_id` when present and link to the frozen market snapshot view. Missing `snapshot_id` is shown as an explicit empty state, not replaced by `snapshot_time`. During P2, this empty state is expected for most or all live/imported trade rows until P3 signal snapshots produce decision snapshot containers.
 
 ### External Trade Entry
 

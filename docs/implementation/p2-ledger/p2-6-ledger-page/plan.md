@@ -269,7 +269,7 @@ Read-only filters:
 - strategy.
 - time range.
 
-Rows must show source mode and origin. Trade/fill rows must show `snapshot_id` when present and an explicit missing-snapshot state when absent.
+Rows must show source mode and origin. Trade/fill rows must show `snapshot_id` when present and an explicit missing-snapshot state when absent. P2 fixtures should cover the missing-snapshot state because real snapshot IDs may not flow until P3.
 
 - [ ] **Step 2: Implement binding/key health panel**
 
