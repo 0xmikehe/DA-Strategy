@@ -1,0 +1,109 @@
+{
+  "manifest": {
+    "schema_version": "ledger.export.v1",
+    "package_id": "pkg_p2_1_deposit_buy_fee",
+    "package_kind": "cassette",
+    "export_run_id": "lexp_mock_deposit_buy_fee",
+    "source_env_id": "cassette-fixture",
+    "sync_run_id": "job_mock_deposit_buy_fee",
+    "scenario_id": "deposit_buy_fee",
+    "cassette_id": "cassette_p2_1_deposit_buy_fee",
+    "produced_at": "2026-06-25T00:00:00.000Z",
+    "content_hash": "sha256:db7938ea7a884fd1245c9347466915d2786417055b799bea1d0b8de6695f0f87",
+    "redaction_level": "none"
+  },
+  "exchange_accounts": [
+    {
+      "exchange_account_id": "acct_mock_core_spot",
+      "exchange": "BINANCE",
+      "account_scope": "spot",
+      "label": "Mock Core Spot",
+      "status": "active"
+    }
+  ],
+  "api_key_health_summaries": [
+    {
+      "credential_ref": "cred_mock_core_spot",
+      "exchange_account_id": "acct_mock_core_spot",
+      "status": "healthy",
+      "checked_at": "2026-06-25T00:00:00.000Z",
+      "permissions": [
+        "read_only"
+      ]
+    }
+  ],
+  "exchange_trade_fills": [
+    {
+      "idempotency_key": "fill_acct_mock_core_spot_BTCUSDT_100",
+      "natural_key": "fill:acct_mock_core_spot:BTCUSDT:100",
+      "origin": {
+        "kind": "mock_scenario",
+        "scenario_id": "deposit_buy_fee"
+      },
+      "occurred_at": "2026-06-25T00:02:00.000Z",
+      "payload": {
+        "exchange_account_id": "acct_mock_core_spot",
+        "strategy_id": "core_allocation_lt",
+        "strategy_version": "v1",
+        "snapshot_id": "snap_mock_001",
+        "asset": "BTC",
+        "base_asset": "BTC",
+        "quote_asset": "USDT",
+        "symbol": "BTCUSDT",
+        "side": "BUY",
+        "trade_id": "100",
+        "order_id": "500",
+        "price": "65000.00",
+        "qty": "0.01000000",
+        "quote_qty": "650.00",
+        "commission": "0.00001000",
+        "commission_asset": "BTC"
+      }
+    }
+  ],
+  "exchange_orders": [],
+  "capital_flow_events": [
+    {
+      "idempotency_key": "flow_acct_mock_core_spot_deposit_dep_001",
+      "natural_key": "flow:acct_mock_core_spot:deposit:dep_001",
+      "origin": {
+        "kind": "mock_scenario",
+        "scenario_id": "deposit_buy_fee"
+      },
+      "occurred_at": "2026-06-25T00:01:00.000Z",
+      "payload": {
+        "exchange_account_id": "acct_mock_core_spot",
+        "external_id": "dep_001",
+        "asset": "USDT",
+        "flow_type": "deposit",
+        "amount": "1000.00",
+        "status": "confirmed"
+      }
+    }
+  ],
+  "external_trades": [],
+  "attribution_records": [],
+  "reversals": [],
+  "account_balance_snapshots": [
+    {
+      "idempotency_key": "snapshot_acct_mock_core_spot_BTC_2026-06-25T00_03_00.000Z_spot_total",
+      "natural_key": "snapshot:acct_mock_core_spot:BTC:2026-06-25T00:03:00.000Z:spot_total",
+      "origin": {
+        "kind": "mock_scenario",
+        "scenario_id": "deposit_buy_fee"
+      },
+      "occurred_at": "2026-06-25T00:03:00.000Z",
+      "payload": {
+        "exchange_account_id": "acct_mock_core_spot",
+        "asset": "BTC",
+        "snapshot_time": "2026-06-25T00:03:00.000Z",
+        "reported_scope": "spot_total",
+        "free": "0.00999000",
+        "locked": "0.00000000"
+      }
+    }
+  ],
+  "reconciliation_results": [],
+  "sync_cursor_summaries": [],
+  "raw_payload_redacted": []
+}

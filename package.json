@@ -21,6 +21,9 @@
     "db:deploy": "prisma migrate deploy",
     "db:status": "prisma migrate status",
     "db:smoke": "node --import tsx src/server/db/smoke.ts",
+    "ledger:mock-package": "node --import tsx src/ledger/package/cli.ts mock-package",
+    "ledger:import-package": "node --import tsx src/ledger/package/cli.ts import-package",
+    "ledger:cassette:promote": "node --import tsx src/ledger/package/cli.ts cassette-promote",
     "worker": "node --import tsx src/server/worker/index.ts",
     "worker:smoke": "node --import tsx src/server/worker/index.ts --once --smoke"
   },
