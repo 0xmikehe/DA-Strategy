@@ -36,6 +36,11 @@ describe("P1 product pages", () => {
     const html = renderToStaticMarkup(createElement(LedgerPageView, { model: ledgerPageModelFixture() }));
 
     expect(html).toContain("账本工作台");
+    expect(html).toContain("当前持仓");
+    expect(html).toContain("账户余额");
+    expect(html).toContain("策略归属持仓");
+    expect(html).toContain("0.00999000 BTC");
+    expect(html).toContain("350.00000000 USDT");
     expect(html).toContain("remote_import");
     expect(html).toContain("+9999.00");
     expect(html).toContain("待归属交易队列");
@@ -94,6 +99,42 @@ function ledgerPageModelFixture(): LedgerPageModel {
         { sourceMode: "mock", batchCount: 1, factCount: 1, latestRequestedAt: "2026-06-25T00:08:00.000Z" },
         { sourceMode: "remote_import", batchCount: 1, factCount: 1, latestRequestedAt: "2026-06-25T00:07:00.000Z" }
       ]
+    },
+    currentPositions: {
+      eventCount: 3,
+      accountRows: [
+        {
+          scopeType: "account",
+          scopeId: "acct_mock_core_spot",
+          asset: "BTC",
+          quantity: "0.00999000",
+          signedQuantity: "+0.00999000",
+          reconciliationStatus: "MATCHED",
+          reconciliationLabel: "已对平",
+          reconciliationTone: "good"
+        },
+        {
+          scopeType: "account",
+          scopeId: "acct_mock_core_spot",
+          asset: "USDT",
+          quantity: "350.00000000",
+          signedQuantity: "+350.00000000",
+          reconciliationStatus: "MISSING_EVENT",
+          reconciliationLabel: "疑似漏事件",
+          reconciliationTone: "risk"
+        }
+      ],
+      strategyRows: [
+        {
+          scopeType: "strategy",
+          scopeId: "core_allocation_lt",
+          asset: "BTC",
+          quantity: "0.00999000",
+          signedQuantity: "+0.00999000"
+        }
+      ],
+      unassignedRows: [],
+      diagnostics: []
     },
     reconciliation: {
       rows: [

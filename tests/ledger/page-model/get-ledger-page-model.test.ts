@@ -29,6 +29,13 @@ describe("ledger page model", () => {
     expect(model.reconciliation.rows).toEqual([]);
     expect(model.pendingAttribution.items).toEqual([]);
     expect(model.flows.rows).toEqual([]);
+    expect("currentPositions" in model ? model.currentPositions : undefined).toEqual({
+      eventCount: 0,
+      accountRows: [],
+      strategyRows: [],
+      unassignedRows: [],
+      diagnostics: []
+    });
     expect(model.capabilities.externalTradeEntry).toBe(true);
   });
 
@@ -56,6 +63,36 @@ describe("ledger page model", () => {
     ]);
     expect(model.freshness.state).toBe("stale");
     expect(model.reconciliation.rows.map((row) => row.status)).toContain("MISSING_EVENT");
+    expect(model.currentPositions.accountRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        scopeType: "account",
+        scopeId: "acct_mock_core_spot",
+        asset: "BTC",
+        quantity: "0.00999000",
+        reconciliationStatus: "MATCHED"
+      }),
+      expect.objectContaining({
+        scopeType: "account",
+        scopeId: "acct_mock_core_spot",
+        asset: "USDT",
+        quantity: "350.00000000",
+        reconciliationStatus: "MISSING_EVENT"
+      }),
+      expect.objectContaining({
+        scopeType: "account",
+        scopeId: "acct_mock_core_spot",
+        asset: "ETH",
+        quantity: "0.50000000"
+      })
+    ]));
+    expect(model.currentPositions.strategyRows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        scopeType: "strategy",
+        scopeId: "core_allocation_lt",
+        asset: "BTC",
+        quantity: "0.00999000"
+      })
+    ]));
     expect(model.pendingAttribution.items).toEqual([
       expect.objectContaining({
         sourceMode: "mock",

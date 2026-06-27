@@ -51,6 +51,32 @@ export type LedgerPagePendingAttributionItem = {
   attributionState: "pending";
 };
 
+export type LedgerPagePositionRow = {
+  scopeType: "account" | "strategy" | "unassigned";
+  scopeId: string;
+  asset: string;
+  quantity: string;
+  signedQuantity: string;
+  reconciliationStatus?: ReconciliationStatus;
+  reconciliationLabel?: string;
+  reconciliationTone?: "good" | "warn" | "risk";
+};
+
+export type LedgerPageReplayDiagnostic = {
+  code: string;
+  message: string;
+  severity?: "info" | "warn" | "error";
+  factIdempotencyKey?: string;
+};
+
+export type LedgerPageCurrentPositions = {
+  eventCount: number;
+  accountRows: LedgerPagePositionRow[];
+  strategyRows: LedgerPagePositionRow[];
+  unassignedRows: LedgerPagePositionRow[];
+  diagnostics: LedgerPageReplayDiagnostic[];
+};
+
 export type LedgerPageFlowRow = {
   factKind: LedgerFactKind;
   idempotencyKey: string;
@@ -98,6 +124,7 @@ export type LedgerPageModel = {
   generatedAt: string;
   freshness: LedgerPageFreshness;
   sourceSummary: LedgerPageSourceSummary;
+  currentPositions: LedgerPageCurrentPositions;
   reconciliation: {
     rows: LedgerPageReconciliationRow[];
   };

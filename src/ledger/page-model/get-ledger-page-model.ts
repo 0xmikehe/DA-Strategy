@@ -1,5 +1,8 @@
 import type { LedgerDataSourceMode, LedgerFactKind } from "@/ledger/ingest";
 import { getPendingAttributionItems } from "@/ledger/manual/pending-attribution";
+import { readLedgerReplayInputs } from "@/ledger/replay/event-reader";
+import { replayLedgerFacts } from "@/ledger/replay/replay-engine";
+import type { LedgerReplayOutput } from "@/ledger/replay/types";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
 import {
@@ -9,9 +12,11 @@ import {
   signedDecimal
 } from "./formatters";
 import type {
+  LedgerPageCurrentPositions,
   LedgerPageFlowRow,
   LedgerPageFreshness,
   LedgerPageModel,
+  LedgerPagePositionRow,
   LedgerPageSourceSummaryRow
 } from "./types";
 
@@ -34,7 +39,7 @@ const factKinds: LedgerFactKind[] = [
 export async function getLedgerPageModel(options: GetLedgerPageModelOptions = {}): Promise<LedgerPageModel> {
   const prismaClient = options.prismaClient ?? prisma;
   const now = options.now ?? new Date();
-  const [batches, reconciliationRows, pendingItems, flows] = await Promise.all([
+  const [batches, reconciliationRows, pendingItems, flows, replayInputs] = await Promise.all([
     prismaClient.ledgerIngestBatch.findMany({
       orderBy: [{ requestedAt: "desc" }, { createdAt: "desc" }]
     }),
@@ -43,15 +48,18 @@ export async function getLedgerPageModel(options: GetLedgerPageModelOptions = {}
       take: 12
     }),
     getPendingAttributionItems({ prismaClient }),
-    readFlowRows(prismaClient)
+    readFlowRows(prismaClient),
+    readLedgerReplayInputs({ prismaClient })
   ]);
 
   const sourceSummary = summarizeSources(batches);
+  const replay = replayLedgerFacts(replayInputs.events);
 
   return {
     generatedAt: now.toISOString(),
     freshness: freshnessFromBatches(batches, now),
     sourceSummary,
+    currentPositions: currentPositionsFromReplay(replay, replayInputs.events.length, reconciliationRows),
     reconciliation: {
       rows: reconciliationRows.map((row) => ({
         runId: row.runId,
@@ -106,6 +114,60 @@ export async function getLedgerPageModel(options: GetLedgerPageModelOptions = {}
       liveRuntime: false
     }
   };
+}
+
+function currentPositionsFromReplay(
+  replay: LedgerReplayOutput,
+  eventCount: number,
+  reconciliationRows: Awaited<ReturnType<PrismaClient["reconciliationResult"]["findMany"]>>
+): LedgerPageCurrentPositions {
+  return {
+    eventCount,
+    accountRows: rowsFromNestedBalances("account", replay.accountBalances, reconciliationRows),
+    strategyRows: rowsFromNestedBalances("strategy", replay.strategyPositions),
+    unassignedRows: rowsFromNestedBalances("unassigned", replay.unassigned),
+    diagnostics: replay.diagnostics.map((diagnostic) => ({
+      code: diagnostic.code,
+      message: diagnostic.message,
+      severity: diagnostic.severity,
+      factIdempotencyKey: diagnostic.factIdempotencyKey
+    }))
+  };
+}
+
+function rowsFromNestedBalances(
+  scopeType: LedgerPagePositionRow["scopeType"],
+  balances: Record<string, Record<string, string>>,
+  reconciliationRows: Awaited<ReturnType<PrismaClient["reconciliationResult"]["findMany"]>> = []
+): LedgerPagePositionRow[] {
+  const reconciliationByAccountAsset = new Map(
+    reconciliationRows.map((row) => [`${row.accountId}:${row.asset}`, row])
+  );
+
+  return Object.entries(balances)
+    .flatMap(([scopeId, assetBalances]) =>
+      Object.entries(assetBalances).map(([asset, quantity]) => {
+        const reconciliation = scopeType === "account" ? reconciliationByAccountAsset.get(`${scopeId}:${asset}`) : undefined;
+        return {
+          scopeType,
+          scopeId,
+          asset,
+          quantity,
+          signedQuantity: signedDecimal(quantity),
+          reconciliationStatus: reconciliation?.status,
+          reconciliationLabel: reconciliation ? reconciliationStatusLabel(reconciliation.status) : undefined,
+          reconciliationTone: reconciliation ? reconciliationTone(reconciliation.status) : undefined
+        } satisfies LedgerPagePositionRow;
+      })
+    )
+    .sort(comparePositionRows);
+}
+
+function comparePositionRows(left: LedgerPagePositionRow, right: LedgerPagePositionRow): number {
+  return (
+    left.scopeId.localeCompare(right.scopeId) ||
+    left.asset.localeCompare(right.asset)
+  );
 }
 
 function freshnessFromBatches(

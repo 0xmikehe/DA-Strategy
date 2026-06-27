@@ -3,7 +3,8 @@ import { AppShell } from "@/app/_components/phase1/app-shell";
 import { StatusBadge } from "@/app/_components/phase1/status-badge";
 import type { LedgerPageModel } from "@/ledger/page-model/types";
 import { BindingHealthPanel } from "./binding-health-panel";
-import { ExternalTradeEntry } from "./external-trade-entry";
+import { CurrentPositionPanel } from "./current-position-panel";
+import { ExceptionActionsPanel } from "./exception-actions-panel";
 import { LedgerFlowTable } from "./ledger-flow-table";
 import { PendingAttributionQueue } from "./pending-attribution-queue";
 import { ReconciliationPanel } from "./reconciliation-panel";
@@ -43,6 +44,7 @@ export function LedgerPageView({ model }: { model: LedgerPageModel }) {
 
         <section className="stack">
           <SyncFreshnessBar model={model} />
+          <CurrentPositionPanel currentPositions={model.currentPositions} />
           <div className="grid-ledger">
             <div className="stack">
               <ReconciliationPanel reconciliation={model.reconciliation} />
@@ -50,8 +52,8 @@ export function LedgerPageView({ model }: { model: LedgerPageModel }) {
               <LedgerFlowTable flows={model.flows} />
             </div>
             <div className="stack">
-              <ExternalTradeEntry options={model.externalTradeFormOptions} />
               <BindingHealthPanel bindingHealth={model.bindingHealth} />
+              <ExceptionActionsPanel options={model.externalTradeFormOptions} />
             </div>
           </div>
         </section>

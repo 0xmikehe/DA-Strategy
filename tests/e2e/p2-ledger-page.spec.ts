@@ -29,13 +29,19 @@ test.describe("P2 ledger page loop", () => {
     await expect(page.getByText("mock").first()).toBeVisible();
     await expect(page.getByText("cassette").first()).toBeVisible();
     await expect(page.getByText("remote_import").first()).toBeVisible();
+    await expect(page.getByText("当前持仓", { exact: true })).toBeVisible();
+    await expect(page.getByText("账户余额", { exact: true })).toBeVisible();
+    await expect(page.getByText("策略归属持仓", { exact: true })).toBeVisible();
+    await expect(page.getByText("0.00999000 BTC").first()).toBeVisible();
+    await expect(page.getByText("350.00000000 USDT").first()).toBeVisible();
     await expect(page.getByText("疑似漏事件").first()).toBeVisible();
     await expect(page.getByText("-9649.00000000").first()).toBeVisible();
     await expect(page.getByText("external_wallet_eth_001").first()).toBeVisible();
     await expect(page.getByText("0.50000000 ETH").first()).toBeVisible();
     await expect(page.getByRole("button", { name: "归属策略" }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "冲正" }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "提交外部交易" })).toBeVisible();
+    await expect(page.getByText("异常处理", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "提交外部交易" })).not.toBeVisible();
 
     const body = page.locator("body");
     await expect(body).not.toContainText("key_ref");
@@ -49,9 +55,10 @@ test.describe("P2 ledger page loop", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: "账本工作台" })).toBeVisible();
     await expect(page.getByText("同步与新鲜度")).toBeVisible();
+    await expect(page.getByText("当前持仓", { exact: true })).toBeVisible();
     await expect(page.getByText("对账面板")).toBeVisible();
     await expect(page.getByText("待归属交易队列")).toBeVisible();
-    await expect(page.getByText("外部交易录入", { exact: true })).toBeVisible();
+    await expect(page.getByText("异常处理", { exact: true })).toBeVisible();
     await expect(page.getByText("remote_import").first()).toBeVisible();
   });
 });
