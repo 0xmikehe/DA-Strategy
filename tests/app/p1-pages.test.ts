@@ -32,20 +32,42 @@ describe("P1 product pages", () => {
     expect(html).not.toContain("raw_payload");
   });
 
-  it("renders the P2 ledger page with source mode, reconciliation, pending attribution, and no secrets", () => {
+  it("renders the P2 ledger page as a summary-first overview with no secrets", () => {
     const html = renderToStaticMarkup(createElement(LedgerPageView, { model: ledgerPageModelFixture() }));
 
     expect(html).toContain("账本工作台");
+    expect(html).toContain("全部账户总览");
+    expect(html).toContain("tracked value");
+    expect(html).toContain("2749.35");
+    expect(html).toContain("账户 / 钱包入口");
+    expect(html).toContain("acct_mock_core_spot");
+    expect(html).toContain("3 assets");
+    expect(html).toContain("remote_import");
+    expect(html).toContain("no balance edit");
+    expect(html).not.toContain("当前持仓");
+    expect(html).not.toContain("账户余额");
+    expect(html).not.toContain("策略归属持仓");
+    expect(html).not.toContain("提交外部交易");
+    expect(html).not.toContain("manual_external_trade:req_ext_pending");
+    expect(html).not.toContain("key_ref");
+    expect(html).not.toContain("raw_payload");
+  });
+
+  it("renders selected ledger accounts as a holdings and history workbench", () => {
+    const html = renderToStaticMarkup(createElement(LedgerPageView, { model: ledgerPageModelFixture("account") }));
+
+    expect(html).toContain("账本工作台");
+    expect(html).toContain("acct_mock_core_spot");
     expect(html).toContain("当前持仓");
     expect(html).toContain("账户余额");
     expect(html).toContain("策略归属持仓");
     expect(html).toContain("0.00999000 BTC");
     expect(html).toContain("350.00000000 USDT");
-    expect(html).toContain("remote_import");
+    expect(html).toContain("对账面板");
     expect(html).toContain("+9999.00");
     expect(html).toContain("待归属交易队列");
     expect(html).toContain("manual_external_trade:req_ext_pending");
-    expect(html).toContain("no balance edit");
+    expect(html).toContain("异常处理");
     expect(html).not.toContain("key_ref");
     expect(html).not.toContain("raw_payload");
   });
@@ -85,9 +107,120 @@ describe("P1 product pages", () => {
   });
 });
 
-function ledgerPageModelFixture(): LedgerPageModel {
+function ledgerPageModelFixture(scope: "all" | "account" = "all"): LedgerPageModel {
+  const accountRows: LedgerPageModel["currentPositions"]["accountRows"] = [
+    {
+      scopeType: "account",
+      scopeId: "acct_mock_core_spot",
+      asset: "BTC",
+      quantity: "0.00999000",
+      signedQuantity: "+0.00999000",
+      valuationStatus: "priced",
+      priceUsd: "65000.00",
+      estimatedValueUsd: "649.35",
+      reconciliationStatus: "MATCHED",
+      reconciliationLabel: "已对平",
+      reconciliationTone: "good"
+    },
+    {
+      scopeType: "account",
+      scopeId: "acct_mock_core_spot",
+      asset: "USDT",
+      quantity: "350.00000000",
+      signedQuantity: "+350.00000000",
+      valuationStatus: "stablecoin_peg",
+      priceUsd: "1.00",
+      estimatedValueUsd: "350.00",
+      reconciliationStatus: "MISSING_EVENT",
+      reconciliationLabel: "疑似漏事件",
+      reconciliationTone: "risk"
+    }
+  ];
+  const strategyRows: LedgerPageModel["currentPositions"]["strategyRows"] = [
+    {
+      scopeType: "strategy",
+      scopeId: "core_allocation_lt",
+      asset: "BTC",
+      quantity: "0.00999000",
+      signedQuantity: "+0.00999000",
+      valuationStatus: "priced",
+      priceUsd: "65000.00",
+      estimatedValueUsd: "649.35"
+    }
+  ];
+  const reconciliationRows: LedgerPageModel["reconciliation"]["rows"] = [
+    {
+      runId: "recon_p2_6",
+      accountId: "acct_mock_core_spot",
+      asset: "USDT",
+      computedQty: "0.00000000",
+      reportedQty: "9999.00",
+      diffQty: "9999.00",
+      signedDiff: "+9999.00",
+      thresholdQty: "0.00000001",
+      status: "MISSING_EVENT",
+      label: "疑似漏事件",
+      tone: "risk",
+      checkedAt: "2026-06-25T00:20:00.000Z",
+      snapshotRef: "snapshot:acct_mock_core_spot:USDT:2026-06-25T00:07:00.000Z:spot_total"
+    }
+  ];
+  const pendingItems: LedgerPageModel["pendingAttribution"]["items"] = [
+    {
+      factKind: "external_trade",
+      idempotencyKey: "manual_external_trade:req_ext_pending",
+      sourceMode: "mock",
+      accountId: "acct_mock_core_spot",
+      asset: "ETH",
+      quantity: "0.50000000",
+      occurredAt: "2026-06-25T00:08:00.000Z",
+      suggestedReason: "missing_attribution",
+      attributionState: "pending"
+    }
+  ];
+  const flowRows: LedgerPageModel["flows"]["rows"] = [
+    {
+      factKind: "external_trade",
+      idempotencyKey: "manual_external_trade:req_ext_pending",
+      naturalKey: "external:wallet:eth:001",
+      sourceMode: "mock",
+      originKind: "mock_scenario",
+      accountId: "acct_mock_core_spot",
+      asset: "ETH",
+      quantity: "0.50000000",
+      signedQuantity: "+0.50000000",
+      side: "BUY",
+      occurredAt: "2026-06-25T00:08:00.000Z"
+    },
+    {
+      factKind: "account_balance_snapshot",
+      idempotencyKey: "snapshot_acct_mock_core_spot_USDT",
+      naturalKey: "snapshot:acct_mock_core_spot:USDT:2026-06-25T00:07:00.000Z:spot_total",
+      sourceMode: "remote_import",
+      originKind: "mock_scenario",
+      accountId: "acct_mock_core_spot",
+      asset: "USDT",
+      quantity: "9999.00",
+      signedQuantity: "+9999.00",
+      occurredAt: "2026-06-25T00:07:00.000Z"
+    }
+  ];
+
   return {
     generatedAt: "2026-06-27T00:00:00.000Z",
+    selectedScope: scope === "account"
+      ? {
+        kind: "account",
+        scopeId: "acct_mock_core_spot",
+        label: "acct_mock_core_spot",
+        accountId: "acct_mock_core_spot",
+        role: "sub_account"
+      }
+      : {
+        kind: "all",
+        scopeId: "all",
+        label: "全部账户总览"
+      },
     freshness: {
       state: "stale",
       label: "数据陈旧 stale",
@@ -100,92 +233,87 @@ function ledgerPageModelFixture(): LedgerPageModel {
         { sourceMode: "remote_import", batchCount: 1, factCount: 1, latestRequestedAt: "2026-06-25T00:07:00.000Z" }
       ]
     },
-    currentPositions: {
-      eventCount: 3,
-      accountRows: [
+    portfolioSummary: {
+      estimatedValueUsd: "2749.35",
+      accountCount: 1,
+      walletCount: 0,
+      assetCount: 3,
+      pricedAssetCount: 3,
+      unpricedAssetCount: 0,
+      reconciliationIssueCount: 1,
+      pendingAttributionCount: 1,
+      latestActivityAt: "2026-06-25T00:08:00.000Z",
+      assetRows: [
         {
-          scopeType: "account",
-          scopeId: "acct_mock_core_spot",
           asset: "BTC",
           quantity: "0.00999000",
           signedQuantity: "+0.00999000",
-          reconciliationStatus: "MATCHED",
-          reconciliationLabel: "已对平",
-          reconciliationTone: "good"
+          valuationStatus: "priced",
+          priceUsd: "65000.00",
+          estimatedValueUsd: "649.35"
         },
         {
-          scopeType: "account",
-          scopeId: "acct_mock_core_spot",
+          asset: "ETH",
+          quantity: "0.50000000",
+          signedQuantity: "+0.50000000",
+          valuationStatus: "priced",
+          priceUsd: "3500.00",
+          estimatedValueUsd: "1750.00"
+        },
+        {
           asset: "USDT",
           quantity: "350.00000000",
           signedQuantity: "+350.00000000",
-          reconciliationStatus: "MISSING_EVENT",
-          reconciliationLabel: "疑似漏事件",
-          reconciliationTone: "risk"
+          valuationStatus: "stablecoin_peg",
+          priceUsd: "1.00",
+          estimatedValueUsd: "350.00"
         }
       ],
-      strategyRows: [
+      scopeOptions: [
         {
-          scopeType: "strategy",
-          scopeId: "core_allocation_lt",
-          asset: "BTC",
-          quantity: "0.00999000",
-          signedQuantity: "+0.00999000"
+          kind: "all",
+          scopeId: "all",
+          label: "全部账户总览",
+          assetCount: 3,
+          pricedAssetCount: 3,
+          unpricedAssetCount: 0,
+          estimatedValueUsd: "2749.35",
+          reconciliationIssueCount: 1,
+          pendingAttributionCount: 1,
+          latestActivityAt: "2026-06-25T00:08:00.000Z"
+        },
+        {
+          kind: "account",
+          scopeId: "acct_mock_core_spot",
+          label: "acct_mock_core_spot",
+          accountId: "acct_mock_core_spot",
+          role: "sub_account",
+          assetCount: 3,
+          pricedAssetCount: 3,
+          unpricedAssetCount: 0,
+          estimatedValueUsd: "2749.35",
+          reconciliationIssueCount: 1,
+          pendingAttributionCount: 1,
+          latestActivityAt: "2026-06-25T00:08:00.000Z"
         }
       ],
+      recentFlowRows: flowRows
+    },
+    currentPositions: {
+      eventCount: 3,
+      accountRows: scope === "account" ? accountRows : [],
+      strategyRows: scope === "account" ? strategyRows : [],
       unassignedRows: [],
       diagnostics: []
     },
     reconciliation: {
-      rows: [
-        {
-          runId: "recon_p2_6",
-          accountId: "acct_mock_core_spot",
-          asset: "USDT",
-          computedQty: "0.00000000",
-          reportedQty: "9999.00",
-          diffQty: "9999.00",
-          signedDiff: "+9999.00",
-          thresholdQty: "0.00000001",
-          status: "MISSING_EVENT",
-          label: "疑似漏事件",
-          tone: "risk",
-          checkedAt: "2026-06-25T00:20:00.000Z",
-          snapshotRef: "snapshot:acct_mock_core_spot:USDT:2026-06-25T00:07:00.000Z:spot_total"
-        }
-      ]
+      rows: scope === "account" ? reconciliationRows : []
     },
     pendingAttribution: {
-      items: [
-        {
-          factKind: "external_trade",
-          idempotencyKey: "manual_external_trade:req_ext_pending",
-          sourceMode: "mock",
-          accountId: "acct_mock_core_spot",
-          asset: "ETH",
-          quantity: "0.50000000",
-          occurredAt: "2026-06-25T00:08:00.000Z",
-          suggestedReason: "missing_attribution",
-          attributionState: "pending"
-        }
-      ]
+      items: scope === "account" ? pendingItems : []
     },
     flows: {
-      rows: [
-        {
-          factKind: "external_trade",
-          idempotencyKey: "manual_external_trade:req_ext_pending",
-          naturalKey: "external:wallet:eth:001",
-          sourceMode: "mock",
-          originKind: "mock_scenario",
-          accountId: "acct_mock_core_spot",
-          asset: "ETH",
-          quantity: "0.50000000",
-          signedQuantity: "+0.50000000",
-          side: "BUY",
-          occurredAt: "2026-06-25T00:08:00.000Z"
-        }
-      ]
+      rows: scope === "account" ? flowRows : []
     },
     externalTradeFormOptions: {
       accounts: ["acct_mock_core_spot"],

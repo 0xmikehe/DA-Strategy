@@ -29,6 +29,18 @@ test.describe("P2 ledger page loop", () => {
     await expect(page.getByText("mock").first()).toBeVisible();
     await expect(page.getByText("cassette").first()).toBeVisible();
     await expect(page.getByText("remote_import").first()).toBeVisible();
+    await expect(page.getByText("全部账户总览").first()).toBeVisible();
+    await expect(page.getByText("tracked value")).toBeVisible();
+    await expect(page.getByText("2749.35").first()).toBeVisible();
+    await expect(page.getByText("账户 / 钱包入口")).toBeVisible();
+    await expect(page.getByRole("link", { name: /acct_mock_core_spot/ }).first()).toBeVisible();
+    await expect(page.getByText("3 assets").first()).toBeVisible();
+    await expect(page.getByText("当前持仓", { exact: true })).not.toBeVisible();
+    await expect(page.getByRole("button", { name: "提交外部交易" })).not.toBeVisible();
+
+    await page.getByRole("link", { name: /acct_mock_core_spot/ }).first().click();
+
+    await expect(page).toHaveURL(/\/ledger\?account=acct_mock_core_spot$/);
     await expect(page.getByText("当前持仓", { exact: true })).toBeVisible();
     await expect(page.getByText("账户余额", { exact: true })).toBeVisible();
     await expect(page.getByText("策略归属持仓", { exact: true })).toBeVisible();
@@ -55,6 +67,13 @@ test.describe("P2 ledger page loop", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: "账本工作台" })).toBeVisible();
     await expect(page.getByText("同步与新鲜度")).toBeVisible();
+    await expect(page.getByText("全部账户总览").first()).toBeVisible();
+    await expect(page.getByText("账户 / 钱包入口")).toBeVisible();
+    await expect(page.getByText("tracked value")).toBeVisible();
+    await expect(page.getByText("当前持仓", { exact: true })).not.toBeVisible();
+
+    await page.goto("/ledger?account=acct_mock_core_spot");
+
     await expect(page.getByText("当前持仓", { exact: true })).toBeVisible();
     await expect(page.getByText("对账面板")).toBeVisible();
     await expect(page.getByText("待归属交易队列")).toBeVisible();

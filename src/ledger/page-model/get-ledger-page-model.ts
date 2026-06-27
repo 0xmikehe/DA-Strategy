@@ -1,5 +1,6 @@
 import type { LedgerDataSourceMode, LedgerFactKind } from "@/ledger/ingest";
 import { getPendingAttributionItems } from "@/ledger/manual/pending-attribution";
+import { addDecimal } from "@/ledger/replay/decimal";
 import { readLedgerReplayInputs } from "@/ledger/replay/event-reader";
 import { replayLedgerFacts } from "@/ledger/replay/replay-engine";
 import type { LedgerReplayOutput } from "@/ledger/replay/types";
@@ -16,13 +17,21 @@ import type {
   LedgerPageFlowRow,
   LedgerPageFreshness,
   LedgerPageModel,
+  LedgerPagePendingAttributionItem,
+  LedgerPagePortfolioAssetRow,
+  LedgerPagePortfolioSummary,
   LedgerPagePositionRow,
+  LedgerPageReconciliationRow,
+  LedgerPageScopeOption,
+  LedgerPageSelectedScope,
   LedgerPageSourceSummaryRow
 } from "./types";
+import { applyTrackedValuation, summarizeValuedPositions } from "./valuation";
 
 export type GetLedgerPageModelOptions = {
   prismaClient?: PrismaClient;
   now?: Date;
+  selectedScopeId?: string;
 };
 
 const staleAfterMs = 24 * 60 * 60 * 1000;
@@ -54,45 +63,44 @@ export async function getLedgerPageModel(options: GetLedgerPageModelOptions = {}
 
   const sourceSummary = summarizeSources(batches);
   const replay = replayLedgerFacts(replayInputs.events);
+  const allCurrentPositions = currentPositionsFromReplay(replay, replayInputs.events.length, reconciliationRows);
+  const allReconciliationRows = reconciliationRows.map(reconciliationRowFromDb);
+  const allPendingItems = pendingItems.map((item) => ({
+    factKind: item.factKind,
+    idempotencyKey: item.idempotencyKey,
+    sourceMode: item.sourceMode,
+    accountId: item.accountId,
+    asset: item.asset,
+    quantity: item.quantity,
+    occurredAt: item.occurredAt,
+    suggestedReason: item.suggestedReason,
+    attributionState: item.attributionState
+  }) satisfies LedgerPagePendingAttributionItem);
+  const allFlowRows = flows.sort((left, right) => right.occurredAt.localeCompare(left.occurredAt)).slice(0, 80);
+  const portfolioSummary = buildPortfolioSummary(
+    allCurrentPositions.accountRows,
+    allReconciliationRows,
+    allPendingItems,
+    allFlowRows
+  );
+  const selectedScope = selectScope(options.selectedScopeId, portfolioSummary.scopeOptions);
+  const currentPositions = scopeCurrentPositions(selectedScope, allCurrentPositions);
 
   return {
     generatedAt: now.toISOString(),
+    selectedScope,
     freshness: freshnessFromBatches(batches, now),
     sourceSummary,
-    currentPositions: currentPositionsFromReplay(replay, replayInputs.events.length, reconciliationRows),
+    portfolioSummary,
+    currentPositions,
     reconciliation: {
-      rows: reconciliationRows.map((row) => ({
-        runId: row.runId,
-        accountId: row.accountId,
-        asset: row.asset,
-        computedQty: row.computedQty,
-        reportedQty: row.reportedQty ?? undefined,
-        diffQty: row.diffQty,
-        signedDiff: signedDecimal(row.diffQty),
-        thresholdQty: row.thresholdQty,
-        status: row.status,
-        label: reconciliationStatusLabel(row.status),
-        tone: reconciliationTone(row.status),
-        checkedAt: row.checkedAt.toISOString(),
-        snapshotRef: row.snapshotRef ?? undefined,
-        note: row.note ?? undefined
-      }))
+      rows: scopeByAccount(selectedScope, allReconciliationRows)
     },
     pendingAttribution: {
-      items: pendingItems.map((item) => ({
-        factKind: item.factKind,
-        idempotencyKey: item.idempotencyKey,
-        sourceMode: item.sourceMode,
-        accountId: item.accountId,
-        asset: item.asset,
-        quantity: item.quantity,
-        occurredAt: item.occurredAt,
-        suggestedReason: item.suggestedReason,
-        attributionState: item.attributionState
-      }))
+      items: scopeByAccount(selectedScope, allPendingItems)
     },
     flows: {
-      rows: flows.sort((left, right) => right.occurredAt.localeCompare(left.occurredAt)).slice(0, 80)
+      rows: scopeByOptionalAccount(selectedScope, allFlowRows)
     },
     externalTradeFormOptions: {
       accounts: unique(flows.map((row) => row.accountId).filter((value): value is string => Boolean(value))),
@@ -116,6 +124,27 @@ export async function getLedgerPageModel(options: GetLedgerPageModelOptions = {}
   };
 }
 
+function reconciliationRowFromDb(
+  row: Awaited<ReturnType<PrismaClient["reconciliationResult"]["findMany"]>>[number]
+): LedgerPageReconciliationRow {
+  return {
+    runId: row.runId,
+    accountId: row.accountId,
+    asset: row.asset,
+    computedQty: row.computedQty,
+    reportedQty: row.reportedQty ?? undefined,
+    diffQty: row.diffQty,
+    signedDiff: signedDecimal(row.diffQty),
+    thresholdQty: row.thresholdQty,
+    status: row.status,
+    label: reconciliationStatusLabel(row.status),
+    tone: reconciliationTone(row.status),
+    checkedAt: row.checkedAt.toISOString(),
+    snapshotRef: row.snapshotRef ?? undefined,
+    note: row.note ?? undefined
+  };
+}
+
 function currentPositionsFromReplay(
   replay: LedgerReplayOutput,
   eventCount: number,
@@ -123,9 +152,9 @@ function currentPositionsFromReplay(
 ): LedgerPageCurrentPositions {
   return {
     eventCount,
-    accountRows: rowsFromNestedBalances("account", replay.accountBalances, reconciliationRows),
-    strategyRows: rowsFromNestedBalances("strategy", replay.strategyPositions),
-    unassignedRows: rowsFromNestedBalances("unassigned", replay.unassigned),
+    accountRows: applyTrackedValuation(rowsFromNestedBalances("account", replay.accountBalances, reconciliationRows)),
+    strategyRows: applyTrackedValuation(rowsFromNestedBalances("strategy", replay.strategyPositions)),
+    unassignedRows: applyTrackedValuation(rowsFromNestedBalances("unassigned", replay.unassigned)),
     diagnostics: replay.diagnostics.map((diagnostic) => ({
       code: diagnostic.code,
       message: diagnostic.message,
@@ -133,6 +162,201 @@ function currentPositionsFromReplay(
       factIdempotencyKey: diagnostic.factIdempotencyKey
     }))
   };
+}
+
+function buildPortfolioSummary(
+  accountRows: LedgerPagePositionRow[],
+  reconciliationRows: LedgerPageReconciliationRow[],
+  pendingItems: LedgerPagePendingAttributionItem[],
+  flowRows: LedgerPageFlowRow[]
+): LedgerPagePortfolioSummary {
+  const assetRows = aggregateAssetRows(accountRows);
+  const summaryValuation = summarizeValuedPositions(assetRows.map((row) => ({
+    scopeType: "account",
+    scopeId: "all",
+    asset: row.asset,
+    quantity: row.quantity,
+    signedQuantity: row.signedQuantity,
+    valuationStatus: row.valuationStatus,
+    priceUsd: row.priceUsd,
+    estimatedValueUsd: row.estimatedValueUsd
+  })));
+  const accountIds = unique([
+    ...accountRows.map((row) => row.scopeId),
+    ...reconciliationRows.map((row) => row.accountId),
+    ...pendingItems.map((item) => item.accountId),
+    ...flowRows.map((row) => row.accountId).filter((value): value is string => Boolean(value))
+  ]);
+  const accountOptions = accountIds.map((accountId) =>
+    accountScopeOption(accountId, accountRows, reconciliationRows, pendingItems, flowRows)
+  );
+  const reconciliationIssueCount = reconciliationRows.filter((row) => row.tone !== "good").length;
+  const latestActivityAt = latestFlowAt(flowRows);
+  const walletCount = accountOptions.filter((option) => option.role === "external_wallet").length;
+
+  return {
+    estimatedValueUsd: summaryValuation.estimatedValueUsd,
+    accountCount: accountOptions.length - walletCount,
+    walletCount,
+    assetCount: assetRows.length,
+    pricedAssetCount: summaryValuation.pricedAssetCount,
+    unpricedAssetCount: summaryValuation.unpricedAssetCount,
+    reconciliationIssueCount,
+    pendingAttributionCount: pendingItems.length,
+    latestActivityAt,
+    assetRows,
+    scopeOptions: [
+      {
+        kind: "all",
+        scopeId: "all",
+        label: "全部账户总览",
+        assetCount: assetRows.length,
+        pricedAssetCount: summaryValuation.pricedAssetCount,
+        unpricedAssetCount: summaryValuation.unpricedAssetCount,
+        estimatedValueUsd: summaryValuation.estimatedValueUsd,
+        reconciliationIssueCount,
+        pendingAttributionCount: pendingItems.length,
+        latestActivityAt
+      },
+      ...accountOptions
+    ],
+    recentFlowRows: flowRows.slice(0, 5)
+  };
+}
+
+function aggregateAssetRows(rows: LedgerPagePositionRow[]): LedgerPagePortfolioAssetRow[] {
+  const quantityByAsset = new Map<string, string>();
+
+  for (const row of rows) {
+    quantityByAsset.set(row.asset, addDecimal(quantityByAsset.get(row.asset) ?? "0.00000000", row.quantity));
+  }
+
+  return applyTrackedValuation(
+    [...quantityByAsset.entries()].map(([asset, quantity]) => ({
+      scopeType: "account",
+      scopeId: "all",
+      asset,
+      quantity,
+      signedQuantity: signedDecimal(quantity)
+    }))
+  ).map((row) => ({
+    asset: row.asset,
+    quantity: row.quantity,
+    signedQuantity: row.signedQuantity,
+    valuationStatus: row.valuationStatus ?? "unpriced",
+    priceUsd: row.priceUsd,
+    estimatedValueUsd: row.estimatedValueUsd
+  }));
+}
+
+function accountScopeOption(
+  accountId: string,
+  accountRows: LedgerPagePositionRow[],
+  reconciliationRows: LedgerPageReconciliationRow[],
+  pendingItems: LedgerPagePendingAttributionItem[],
+  flowRows: LedgerPageFlowRow[]
+): LedgerPageScopeOption {
+  const rows = accountRows.filter((row) => row.scopeId === accountId);
+  const valuation = summarizeValuedPositions(rows);
+  const accountFlows = flowRows.filter((row) => row.accountId === accountId);
+
+  return {
+    kind: "account",
+    scopeId: accountId,
+    label: accountId,
+    accountId,
+    role: inferAccountRole(accountId),
+    assetCount: new Set(rows.map((row) => row.asset)).size,
+    pricedAssetCount: valuation.pricedAssetCount,
+    unpricedAssetCount: valuation.unpricedAssetCount,
+    estimatedValueUsd: valuation.estimatedValueUsd,
+    reconciliationIssueCount: reconciliationRows.filter((row) => row.accountId === accountId && row.tone !== "good").length,
+    pendingAttributionCount: pendingItems.filter((item) => item.accountId === accountId).length,
+    latestActivityAt: latestFlowAt(accountFlows)
+  };
+}
+
+function selectScope(selectedScopeId: string | undefined, options: LedgerPageScopeOption[]): LedgerPageSelectedScope {
+  const option = selectedScopeId && selectedScopeId !== "all"
+    ? options.find((candidate) => candidate.scopeId === selectedScopeId)
+    : options[0];
+  const selected = option ?? options[0];
+
+  if (selected.kind === "account") {
+    return {
+      kind: "account",
+      scopeId: selected.scopeId,
+      label: selected.label,
+      accountId: selected.accountId,
+      role: selected.role
+    };
+  }
+
+  return {
+    kind: "all",
+    scopeId: "all",
+    label: "全部账户总览"
+  };
+}
+
+function scopeCurrentPositions(
+  selectedScope: LedgerPageSelectedScope,
+  currentPositions: LedgerPageCurrentPositions
+): LedgerPageCurrentPositions {
+  if (selectedScope.kind === "all") {
+    return {
+      eventCount: currentPositions.eventCount,
+      accountRows: [],
+      strategyRows: [],
+      unassignedRows: [],
+      diagnostics: currentPositions.diagnostics
+    };
+  }
+
+  return {
+    eventCount: currentPositions.eventCount,
+    accountRows: currentPositions.accountRows.filter((row) => row.scopeId === selectedScope.accountId),
+    strategyRows: currentPositions.strategyRows,
+    unassignedRows: [],
+    diagnostics: currentPositions.diagnostics
+  };
+}
+
+function scopeByAccount<T extends { accountId: string }>(selectedScope: LedgerPageSelectedScope, rows: T[]): T[] {
+  if (selectedScope.kind === "all") {
+    return [];
+  }
+  return rows.filter((row) => row.accountId === selectedScope.accountId);
+}
+
+function scopeByOptionalAccount<T extends { accountId?: string }>(selectedScope: LedgerPageSelectedScope, rows: T[]): T[] {
+  if (selectedScope.kind === "all") {
+    return [];
+  }
+  return rows.filter((row) => row.accountId === selectedScope.accountId);
+}
+
+function latestFlowAt(flowRows: LedgerPageFlowRow[]): string | undefined {
+  return flowRows.reduce<string | undefined>((latest, row) => {
+    if (!latest || row.occurredAt > latest) {
+      return row.occurredAt;
+    }
+    return latest;
+  }, undefined);
+}
+
+function inferAccountRole(accountId: string): LedgerPageScopeOption["role"] {
+  const normalized = accountId.toLowerCase();
+  if (normalized.includes("master")) {
+    return "master";
+  }
+  if (normalized.includes("external") || normalized.includes("wallet")) {
+    return "external_wallet";
+  }
+  if (normalized.includes("sub") || normalized.includes("spot")) {
+    return "sub_account";
+  }
+  return "unknown";
 }
 
 function rowsFromNestedBalances(

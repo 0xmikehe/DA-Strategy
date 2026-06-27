@@ -57,9 +57,57 @@ export type LedgerPagePositionRow = {
   asset: string;
   quantity: string;
   signedQuantity: string;
+  valuationStatus?: "priced" | "stablecoin_peg" | "unpriced";
+  priceUsd?: string;
+  estimatedValueUsd?: string;
   reconciliationStatus?: ReconciliationStatus;
   reconciliationLabel?: string;
   reconciliationTone?: "good" | "warn" | "risk";
+};
+
+export type LedgerPageScopeKind = "all" | "account";
+export type LedgerPageAccountRole = "master" | "sub_account" | "external_wallet" | "unknown";
+
+export type LedgerPageSelectedScope = {
+  kind: LedgerPageScopeKind;
+  scopeId: string;
+  label: string;
+  accountId?: string;
+  role?: LedgerPageAccountRole;
+};
+
+export type LedgerPagePortfolioAssetRow = {
+  asset: string;
+  quantity: string;
+  signedQuantity: string;
+  valuationStatus: "priced" | "stablecoin_peg" | "unpriced";
+  priceUsd?: string;
+  estimatedValueUsd?: string;
+};
+
+export type LedgerPageScopeOption = LedgerPageSelectedScope & {
+  assetCount: number;
+  pricedAssetCount: number;
+  unpricedAssetCount: number;
+  estimatedValueUsd?: string;
+  reconciliationIssueCount: number;
+  pendingAttributionCount: number;
+  latestActivityAt?: string;
+};
+
+export type LedgerPagePortfolioSummary = {
+  estimatedValueUsd?: string;
+  accountCount: number;
+  walletCount: number;
+  assetCount: number;
+  pricedAssetCount: number;
+  unpricedAssetCount: number;
+  reconciliationIssueCount: number;
+  pendingAttributionCount: number;
+  latestActivityAt?: string;
+  assetRows: LedgerPagePortfolioAssetRow[];
+  scopeOptions: LedgerPageScopeOption[];
+  recentFlowRows: LedgerPageFlowRow[];
 };
 
 export type LedgerPageReplayDiagnostic = {
@@ -122,8 +170,10 @@ export type LedgerPageCapabilities = {
 
 export type LedgerPageModel = {
   generatedAt: string;
+  selectedScope: LedgerPageSelectedScope;
   freshness: LedgerPageFreshness;
   sourceSummary: LedgerPageSourceSummary;
+  portfolioSummary: LedgerPagePortfolioSummary;
   currentPositions: LedgerPageCurrentPositions;
   reconciliation: {
     rows: LedgerPageReconciliationRow[];

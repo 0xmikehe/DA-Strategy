@@ -475,6 +475,108 @@ textarea {
   gap: 8px;
 }
 
+.scope-selector {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.scope-tab {
+  display: grid;
+  min-width: 190px;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: rgba(13, 20, 31, 0.62);
+  color: var(--muted);
+  padding: 9px 10px;
+}
+
+.scope-tab.is-active {
+  border-color: rgba(78, 163, 216, 0.48);
+  background: rgba(78, 163, 216, 0.12);
+  color: var(--text);
+}
+
+.scope-tab span {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scope-tab small {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.ledger-overview-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.account-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.account-scope-card {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: var(--radius-panel);
+  background: rgba(16, 26, 40, 0.44);
+  color: var(--text);
+  padding: 12px;
+}
+
+.account-scope-card:hover {
+  border-color: rgba(78, 163, 216, 0.42);
+  background: rgba(16, 26, 40, 0.72);
+}
+
+.account-scope-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.account-scope-head strong {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-scope-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.account-scope-metrics span {
+  overflow-wrap: anywhere;
+  border: 1px solid rgba(148, 163, 184, 0.11);
+  border-radius: var(--radius-control);
+  background: rgba(8, 15, 24, 0.54);
+  color: var(--muted);
+  padding: 7px;
+  font-size: 11px;
+}
+
+.account-scope-card small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .position-grid {
   display: grid;
   grid-template-columns: minmax(420px, 1.16fr) minmax(360px, 0.92fr) minmax(300px, 0.72fr);
@@ -523,7 +625,12 @@ textarea {
 
 .position-table th:nth-child(2),
 .position-table td:nth-child(2) {
-  width: 34%;
+  width: 30%;
+}
+
+.position-table th:nth-child(3),
+.position-table td:nth-child(3) {
+  width: 22%;
 }
 
 .position-diagnostics {
@@ -1058,6 +1165,9 @@ textarea {
   .ledger-status-grid,
   .position-grid,
   .ledger-form-grid,
+  .ledger-overview-strip,
+  .account-card-grid,
+  .account-scope-metrics,
   .snapshot-grid {
     grid-template-columns: 1fr;
   }

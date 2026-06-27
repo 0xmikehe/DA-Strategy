@@ -59,6 +59,7 @@ function PositionTable({
             <tr>
               <th>scope</th>
               <th className="right">quantity</th>
+              <th className="right">value</th>
               <th>status</th>
             </tr>
           </thead>
@@ -71,6 +72,9 @@ function PositionTable({
                 </td>
                 <td className={`right ${row.signedQuantity.startsWith("-") ? "negative" : "positive"}`}>
                   {row.quantity} {row.asset}
+                </td>
+                <td className="right">
+                  {row.estimatedValueUsd ? `${row.estimatedValueUsd} USD` : row.valuationStatus ?? "n/a"}
                 </td>
                 <td>
                   {row.reconciliationLabel ? (

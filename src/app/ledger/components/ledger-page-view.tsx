@@ -7,10 +7,16 @@ import { CurrentPositionPanel } from "./current-position-panel";
 import { ExceptionActionsPanel } from "./exception-actions-panel";
 import { LedgerFlowTable } from "./ledger-flow-table";
 import { PendingAttributionQueue } from "./pending-attribution-queue";
+import { PortfolioOverview } from "./portfolio-overview";
 import { ReconciliationPanel } from "./reconciliation-panel";
+import { ScopeSelector } from "./scope-selector";
 import { SyncFreshnessBar } from "./sync-freshness-bar";
 
 export function LedgerPageView({ model }: { model: LedgerPageModel }) {
+  const pendingCount = model.selectedScope.kind === "all"
+    ? model.portfolioSummary.pendingAttributionCount
+    : model.pendingAttribution.items.length;
+
   return (
     <AppShell
       active="ledger"
@@ -19,8 +25,8 @@ export function LedgerPageView({ model }: { model: LedgerPageModel }) {
           <StatusBadge tone={model.freshness.state === "ok" ? "good" : model.freshness.state === "empty" ? "warn" : "risk"}>
             {model.freshness.label}
           </StatusBadge>
-          <StatusBadge tone={model.pendingAttribution.items.length > 0 ? "warn" : "good"}>
-            pending {model.pendingAttribution.items.length}
+          <StatusBadge tone={pendingCount > 0 ? "warn" : "good"}>
+            pending {pendingCount}
           </StatusBadge>
         </>
       }
@@ -33,7 +39,7 @@ export function LedgerPageView({ model }: { model: LedgerPageModel }) {
             <p className="page-kicker">P2 / Ledger Workbench</p>
             <h1 className="page-title">账本工作台</h1>
             <p className="page-summary">
-              同步状态、对账差异和待归属队列优先展示。页面消费 mock / cassette / remote_import / live 事实来源，写操作只委派到账本服务。
+              全部账户只展示组合摘要和账户入口；进入具体账户后查看持仓、历史流水、对账差异和异常兜底。
             </p>
           </div>
           <div className="action-row">
@@ -44,18 +50,25 @@ export function LedgerPageView({ model }: { model: LedgerPageModel }) {
 
         <section className="stack">
           <SyncFreshnessBar model={model} />
-          <CurrentPositionPanel currentPositions={model.currentPositions} />
-          <div className="grid-ledger">
+          <ScopeSelector model={model} />
+          {model.selectedScope.kind === "all" ? (
+            <PortfolioOverview model={model} />
+          ) : (
             <div className="stack">
-              <ReconciliationPanel reconciliation={model.reconciliation} />
-              <PendingAttributionQueue pendingAttribution={model.pendingAttribution} />
-              <LedgerFlowTable flows={model.flows} />
+              <CurrentPositionPanel currentPositions={model.currentPositions} />
+              <div className="grid-ledger">
+                <div className="stack">
+                  <ReconciliationPanel reconciliation={model.reconciliation} />
+                  <PendingAttributionQueue pendingAttribution={model.pendingAttribution} />
+                  <LedgerFlowTable flows={model.flows} />
+                </div>
+                <div className="stack">
+                  <BindingHealthPanel bindingHealth={model.bindingHealth} />
+                  <ExceptionActionsPanel options={model.externalTradeFormOptions} />
+                </div>
+              </div>
             </div>
-            <div className="stack">
-              <BindingHealthPanel bindingHealth={model.bindingHealth} />
-              <ExceptionActionsPanel options={model.externalTradeFormOptions} />
-            </div>
-          </div>
+          )}
         </section>
       </main>
     </AppShell>
