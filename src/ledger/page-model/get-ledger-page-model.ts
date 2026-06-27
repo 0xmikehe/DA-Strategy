@@ -1,0 +1,298 @@
+import type { LedgerDataSourceMode, LedgerFactKind } from "@/ledger/ingest";
+import { getPendingAttributionItems } from "@/ledger/manual/pending-attribution";
+import type { Prisma, PrismaClient } from "@prisma/client";
+import { prisma } from "@/server/db/prisma";
+import {
+  freshnessLabel,
+  reconciliationStatusLabel,
+  reconciliationTone,
+  signedDecimal
+} from "./formatters";
+import type {
+  LedgerPageFlowRow,
+  LedgerPageFreshness,
+  LedgerPageModel,
+  LedgerPageSourceSummaryRow
+} from "./types";
+
+export type GetLedgerPageModelOptions = {
+  prismaClient?: PrismaClient;
+  now?: Date;
+};
+
+const staleAfterMs = 24 * 60 * 60 * 1000;
+const factKinds: LedgerFactKind[] = [
+  "exchange_trade_fill",
+  "exchange_order",
+  "capital_flow_event",
+  "external_trade",
+  "attribution_record",
+  "reversal",
+  "account_balance_snapshot"
+];
+
+export async function getLedgerPageModel(options: GetLedgerPageModelOptions = {}): Promise<LedgerPageModel> {
+  const prismaClient = options.prismaClient ?? prisma;
+  const now = options.now ?? new Date();
+  const [batches, reconciliationRows, pendingItems, flows] = await Promise.all([
+    prismaClient.ledgerIngestBatch.findMany({
+      orderBy: [{ requestedAt: "desc" }, { createdAt: "desc" }]
+    }),
+    prismaClient.reconciliationResult.findMany({
+      orderBy: [{ checkedAt: "desc" }, { createdAt: "desc" }],
+      take: 12
+    }),
+    getPendingAttributionItems({ prismaClient }),
+    readFlowRows(prismaClient)
+  ]);
+
+  const sourceSummary = summarizeSources(batches);
+
+  return {
+    generatedAt: now.toISOString(),
+    freshness: freshnessFromBatches(batches, now),
+    sourceSummary,
+    reconciliation: {
+      rows: reconciliationRows.map((row) => ({
+        runId: row.runId,
+        accountId: row.accountId,
+        asset: row.asset,
+        computedQty: row.computedQty,
+        reportedQty: row.reportedQty ?? undefined,
+        diffQty: row.diffQty,
+        signedDiff: signedDecimal(row.diffQty),
+        thresholdQty: row.thresholdQty,
+        status: row.status,
+        label: reconciliationStatusLabel(row.status),
+        tone: reconciliationTone(row.status),
+        checkedAt: row.checkedAt.toISOString(),
+        snapshotRef: row.snapshotRef ?? undefined,
+        note: row.note ?? undefined
+      }))
+    },
+    pendingAttribution: {
+      items: pendingItems.map((item) => ({
+        factKind: item.factKind,
+        idempotencyKey: item.idempotencyKey,
+        sourceMode: item.sourceMode,
+        accountId: item.accountId,
+        asset: item.asset,
+        quantity: item.quantity,
+        occurredAt: item.occurredAt,
+        suggestedReason: item.suggestedReason,
+        attributionState: item.attributionState
+      }))
+    },
+    flows: {
+      rows: flows.sort((left, right) => right.occurredAt.localeCompare(left.occurredAt)).slice(0, 80)
+    },
+    externalTradeFormOptions: {
+      accounts: unique(flows.map((row) => row.accountId).filter((value): value is string => Boolean(value))),
+      assets: unique(flows.map((row) => row.asset).filter((value): value is string => Boolean(value))),
+      defaultQuoteAsset: "USDT",
+      strategyOptions: [{ strategyId: "core_allocation_lt", strategyVersion: "v1", label: "core_allocation_lt@v1" }]
+    },
+    bindingHealth: {
+      state: "WARN",
+      label: "binding/key health summary unavailable",
+      safeReason: "P2-3a binding baseline is not enabled in this offline page loop."
+    },
+    capabilities: {
+      manualSync: false,
+      requestReconciliation: true,
+      attribution: true,
+      reversal: true,
+      externalTradeEntry: true,
+      liveRuntime: false
+    }
+  };
+}
+
+function freshnessFromBatches(
+  batches: Awaited<ReturnType<PrismaClient["ledgerIngestBatch"]["findMany"]>>,
+  now: Date
+): LedgerPageFreshness {
+  const latest = batches[0];
+  if (!latest) {
+    return {
+      state: "empty",
+      label: freshnessLabel("empty")
+    };
+  }
+
+  const ageMs = now.getTime() - latest.requestedAt.getTime();
+  const state = ageMs > staleAfterMs ? "stale" : "ok";
+  return {
+    state,
+    label: freshnessLabel(state),
+    latestAt: latest.requestedAt.toISOString()
+  };
+}
+
+function summarizeSources(
+  batches: Awaited<ReturnType<PrismaClient["ledgerIngestBatch"]["findMany"]>>
+): { totalFacts: number; modes: LedgerPageSourceSummaryRow[] } {
+  const byMode = new Map<LedgerDataSourceMode, LedgerPageSourceSummaryRow>();
+
+  for (const batch of batches) {
+    const current =
+      byMode.get(batch.sourceMode) ??
+      ({
+        sourceMode: batch.sourceMode,
+        batchCount: 0,
+        factCount: 0,
+        latestRequestedAt: undefined
+      } satisfies LedgerPageSourceSummaryRow);
+
+    current.batchCount += 1;
+    current.factCount += insertedCount(batch.resultSummary);
+    if (!current.latestRequestedAt || batch.requestedAt.toISOString() > current.latestRequestedAt) {
+      current.latestRequestedAt = batch.requestedAt.toISOString();
+    }
+    byMode.set(batch.sourceMode, current);
+  }
+
+  const modes = [...byMode.values()].sort((left, right) => left.sourceMode.localeCompare(right.sourceMode));
+  return {
+    totalFacts: modes.reduce((sum, row) => sum + row.factCount, 0),
+    modes
+  };
+}
+
+function insertedCount(resultSummary: Prisma.JsonValue | null): number {
+  if (!resultSummary || typeof resultSummary !== "object" || Array.isArray(resultSummary)) {
+    return 0;
+  }
+
+  const inserted = (resultSummary as Record<string, unknown>).inserted;
+  if (!inserted || typeof inserted !== "object" || Array.isArray(inserted)) {
+    return 0;
+  }
+
+  return factKinds.reduce((sum, kind) => {
+    const value = (inserted as Record<string, unknown>)[kind];
+    return sum + (typeof value === "number" ? value : 0);
+  }, 0);
+}
+
+async function readFlowRows(prismaClient: PrismaClient): Promise<LedgerPageFlowRow[]> {
+  const [
+    tradeFills,
+    orders,
+    capitalFlows,
+    externalTrades,
+    attributionRecords,
+    reversals,
+    balanceSnapshots
+  ] = await Promise.all([
+    prismaClient.exchangeTradeFill.findMany({ orderBy: [{ occurredAt: "desc" }], take: 40 }),
+    prismaClient.exchangeOrder.findMany({ orderBy: [{ occurredAt: "desc" }], take: 20 }),
+    prismaClient.capitalFlowEvent.findMany({ orderBy: [{ occurredAt: "desc" }], take: 40 }),
+    prismaClient.externalTrade.findMany({ orderBy: [{ occurredAt: "desc" }], take: 40 }),
+    prismaClient.attributionRecord.findMany({ orderBy: [{ occurredAt: "desc" }], take: 30 }),
+    prismaClient.ledgerReversal.findMany({ orderBy: [{ occurredAt: "desc" }], take: 20 }),
+    prismaClient.accountBalanceSnapshot.findMany({ orderBy: [{ occurredAt: "desc" }], take: 20 })
+  ]);
+
+  return [
+    ...tradeFills.map((row) => factRow("exchange_trade_fill", row, tradeFillQuantity(row.payload), optionalString(row.payload, "side"))),
+    ...orders.map((row) => factRow("exchange_order", row, optionalString(row.payload, "qty"), optionalString(row.payload, "side"))),
+    ...capitalFlows.map((row) => factRow("capital_flow_event", row, capitalFlowQuantity(row.payload), optionalString(row.payload, "flow_type"))),
+    ...externalTrades.map((row) => factRow("external_trade", row, externalTradeQuantity(row.payload), optionalString(row.payload, "side"))),
+    ...attributionRecords.map((row) => factRow("attribution_record", row, undefined, optionalString(row.payload, "assignment_kind"))),
+    ...reversals.map((row) => factRow("reversal", row, undefined, row.reasonCode)),
+    ...balanceSnapshots.map((row) => factRow("account_balance_snapshot", row, balanceSnapshotQuantity(row.payload), optionalString(row.payload, "reported_scope")))
+  ];
+}
+
+function factRow(
+  factKind: LedgerFactKind,
+  row: {
+    idempotencyKey: string;
+    naturalKey: string;
+    sourceMode: LedgerDataSourceMode;
+    origin: Prisma.JsonValue;
+    occurredAt: Date;
+    exchangeAccountId: string | null;
+    asset: string | null;
+    strategyId: string | null;
+    snapshotId: string | null;
+  },
+  quantity: string | undefined,
+  side: string | undefined
+): LedgerPageFlowRow {
+  return {
+    factKind,
+    idempotencyKey: row.idempotencyKey,
+    naturalKey: row.naturalKey,
+    sourceMode: row.sourceMode,
+    originKind: originKind(row.origin),
+    accountId: row.exchangeAccountId ?? undefined,
+    asset: row.asset ?? undefined,
+    quantity,
+    signedQuantity: quantity ? signedDecimal(quantity) : undefined,
+    side,
+    strategyId: row.strategyId ?? undefined,
+    snapshotId: row.snapshotId ?? undefined,
+    occurredAt: row.occurredAt.toISOString()
+  };
+}
+
+function tradeFillQuantity(payload: Prisma.JsonValue): string | undefined {
+  const qty = optionalString(payload, "qty");
+  if (!qty) {
+    return undefined;
+  }
+
+  return optionalString(payload, "side") === "SELL" ? `-${qty}` : qty;
+}
+
+function capitalFlowQuantity(payload: Prisma.JsonValue): string | undefined {
+  const amount = optionalString(payload, "amount");
+  if (!amount) {
+    return undefined;
+  }
+
+  const flowType = optionalString(payload, "flow_type");
+  return flowType === "withdrawal" || flowType === "transfer_out" ? `-${amount}` : amount;
+}
+
+function externalTradeQuantity(payload: Prisma.JsonValue): string | undefined {
+  const amount = optionalString(payload, "amount");
+  if (!amount) {
+    return undefined;
+  }
+
+  return optionalString(payload, "side") === "SELL" ? `-${amount}` : amount;
+}
+
+function balanceSnapshotQuantity(payload: Prisma.JsonValue): string | undefined {
+  const free = optionalString(payload, "free");
+  const locked = optionalString(payload, "locked");
+  if (free && locked === "0.00000000") {
+    return free;
+  }
+  return free;
+}
+
+function originKind(origin: Prisma.JsonValue): string {
+  if (origin && typeof origin === "object" && !Array.isArray(origin)) {
+    const kind = (origin as Record<string, unknown>).kind;
+    if (typeof kind === "string") {
+      return kind;
+    }
+  }
+
+  return "unknown";
+}
+
+function optionalString(payload: Prisma.JsonValue, key: string): string | undefined {
+  const value = payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>)[key]
+    : undefined;
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)].sort();
+}
